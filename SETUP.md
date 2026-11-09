@@ -2,6 +2,8 @@
 
 Comprehensive instructions for running **Compare Projects** locally, deploying globally to production, and verifying database connectivity.
 
+> **Newer step-by-step guide:** [docs/setup.md](docs/setup.md) covers local setup and production deployment topic by topic, including the development build (Expo Go can't run phone login), Render persistent disk, EAS builds and Sentry.
+
 ---
 
 ## Table of Contents
