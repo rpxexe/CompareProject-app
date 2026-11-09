@@ -15,7 +15,7 @@ import Text from "./AppText";
 // Card that sits on top of the bottom navigation while projects are queued for comparison:
 // how many are picked, "Compare Now", a cancel button that empties the list (and so hides the
 // card), and a chip per project so any one can be taken out.
-export default function CompareTray({ onCompare }) {
+export default function CompareTray({ onCompare, style }) {
   const { ids, count, remove, clear } = useCompare();
   const [byId, setById] = useState({}); // id -> listing, kept across changes so chips don't flicker
   const pop = useRef(new Animated.Value(1)).current;
@@ -65,7 +65,7 @@ export default function CompareTray({ onCompare }) {
 
   return (
     <Animated.View
-      style={[styles.card, { opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}
+      style={[styles.card, style, { opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}
     >
       <View style={styles.head} accessibilityLiveRegion="polite">
         <Animated.View style={{ transform: [{ scale: pop }] }}>

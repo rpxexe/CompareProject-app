@@ -154,7 +154,10 @@ export default function BottomNav({ state, navigation, badges = {} }) {
   // Only the tabs' own first screens show the bar; anything pushed on top (search results,
   // property details, settings...) is an inner screen and gets the full height.
   const inner = (state.routes[state.index]?.state?.index ?? 0) > 0;
-  const showTray = !isDeveloper && compareCount > 0 && active !== "Compare";
+  // The filters screen draws the compare card itself, above its Clear / Show results buttons.
+  const tabState = state.routes[state.index]?.state;
+  const screen = tabState ? tabState.routes[tabState.index ?? 0]?.name : active === "Explore" ? "SearchFilters" : null;
+  const showTray = !isDeveloper && compareCount > 0 && active !== "Compare" && screen !== "SearchFilters";
   const activeCfg = tabConfig(active);
 
   useEffect(() => {

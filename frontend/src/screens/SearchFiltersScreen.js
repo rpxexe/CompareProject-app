@@ -7,6 +7,9 @@ import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomSpace } from "../hooks/useBottomSpace";
 import Button from "../components/Button";
+import CompareTray from "../components/CompareTray";
+import { useAuth } from "../context/AuthContext";
+import { useCompare } from "../context/CompareContext";
 import PressableScale from "../components/PressableScale";
 import Reveal from "../components/Reveal";
 import RollingPlaceholder from "../components/RollingPlaceholder";
@@ -108,6 +111,11 @@ export default function SearchFiltersScreen({ navigation, route }) {
   const selected = activeFilterIds(draft, config).length + ["search", "city", "locality"].filter((k) => draft.query[k]).length;
   // The Clear / Apply footer only appears once something is selected.
   const showFooter = ready && selected > 0 && !suggesting;
+  // The compare card sits in the footer above the buttons (BottomNav leaves it out on this screen).
+  const { count: compareCount } = useCompare();
+  const { isDeveloper } = useAuth();
+  const showTray = ready && compareCount > 0 && !isDeveloper && !suggesting && !keyboardUp;
+  const showBottom = showFooter || showTray;
   const footerPad = keyboardUp ? 10 : tabBar ? tabBar + 8 : Math.max(inset, 10) + 4;
 
   const tabs = MAIN_TABS
@@ -219,7 +227,7 @@ export default function SearchFiltersScreen({ navigation, route }) {
       ) : (
         // The white panel ends above the footer / tab bar with a lavender gap, so its rounded
         // bottom corner is always fully visible instead of running under them.
-        <View style={[styles.split, { paddingBottom: showFooter ? 10 : footerPad + 10 }]}>
+        <View style={[styles.split, { paddingBottom: showBottom ? 10 : footerPad + 10 }]}>
           <FilterSidebar
             categories={sidebar}
             value={category?.id}
@@ -273,10 +281,17 @@ export default function SearchFiltersScreen({ navigation, route }) {
 
       {/* Runs on behind the floating tab bar, so there's no dead strip or hard edge between the two.
           Mounted only while filters are selected, so it slides up on the first pick. */}
-      {showFooter ? (
+      {showBottom ? (
         <Reveal delay={0} distance={28} style={[styles.footer, { paddingBottom: footerPad }]}>
+          {showTray ? (
+            <CompareTray
+              onCompare={() => navigation.navigate("Compare", { screen: "CompareMain" })}
+              style={showFooter ? null : { marginBottom: 0 }}
+            />
+          ) : null}
           {/* One compact row: the live match count rides in the Apply button, so the footer takes
               a single button's height and leaves the rest of the screen to the filters. */}
+          {showFooter ? (
           <View style={styles.actions}>
             <Pressable
               onPress={() => setDraft((d) => clearEverything(d, config))}
@@ -300,6 +315,7 @@ export default function SearchFiltersScreen({ navigation, route }) {
               />
             </View>
           </View>
+          ) : null}
         </Reveal>
       ) : null}
     </KeyboardAvoidingView>
