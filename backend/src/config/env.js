@@ -42,6 +42,14 @@ function load() {
     },
     // How often the API refreshes listings' normalised filter fields (0 turns the job off).
     filterSyncMinutes: Number(process.env.FILTER_SYNC_MINUTES ?? 10),
+    // Sentry error tracking (src/instrument.js). Empty DSN = disabled.
+    sentry: {
+      dsn: String(process.env.SENTRY_DSN || '').trim(),
+      environment: String(process.env.SENTRY_ENVIRONMENT || '').trim(),
+      // Groups errors by deploy. Falls back to the git commit Render exposes on every deploy.
+      release: String(process.env.SENTRY_RELEASE || process.env.RENDER_GIT_COMMIT || '').trim(),
+      tracesSampleRate: Math.min(1, Math.max(0, Number(process.env.SENTRY_TRACES_SAMPLE_RATE) || 0)),
+    },
   };
 }
 

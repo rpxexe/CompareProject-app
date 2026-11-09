@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, session, setUnauthorizedHandler } from '../services/api';
 import * as firebasePhone from '../services/firebasePhone';
 import { clearUserData } from '../services/userData';
+import { setSentryUser } from '../services/sentry';
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -11,6 +12,8 @@ export function AuthProvider({ children }) {
   const [ready, setReady] = useState(false);
   const [token, setTokenState] = useState(null);
   const [user, setUser] = useState(null);
+  // Error reports carry the account id (never phone or name); cleared on sign-out.
+  useEffect(() => { setSentryUser(user); }, [user]);
   const [isGuest, setIsGuest] = useState(false);
   const [pendingWelcome, setPendingWelcome] = useState(false);
   const [loginPrompt, setLoginPrompt] = useState({
