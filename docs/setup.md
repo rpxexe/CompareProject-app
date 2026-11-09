@@ -290,8 +290,11 @@ Developers keep using the development `frontend/google-services.json`; release b
 
 App Check makes Firebase accept sign-in requests only from your genuine app installed from Play, so stolen keys can't trigger SMS.
 
-1. Firebase → *Build → App Check* → register the Android app with **Play Integrity** (link the Play Console app when asked).
-2. This needs a small app change (`@react-native-firebase/app-check` set up at start-up), which isn't in the code yet. Add it, ship a build, watch App Check's metrics for a few days, then click **Enforce** for Authentication.
+The app side is already done (`frontend/src/services/appCheck.js`: Play Integrity in release builds, debug provider in debug builds). In the console:
+
+1. Firebase → *Build → App Check* → register the Android app with **Play Integrity** (link the Play Console app when asked), with the SHA-256 fingerprints from Step 3.
+2. For debug builds, open the app once and find `Enter this debug secret into the allow list` in logcat (`adb logcat | grep -i "debug secret"`). Add that token under *App Check → Apps → ⋮ → Manage debug tokens*. Alternatively, put a token you created there in `EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN` in `frontend/.env`.
+3. Ship a release build and watch *App Check → APIs → Authentication* metrics for a few days. When almost all requests show as **verified**, click **Enforce**. From then on only genuine installs can sign in or request SMS.
 
 ### Step 8 — Create the production database (MongoDB Atlas)
 
