@@ -2,6 +2,15 @@
 export const isPresent = (v) => !(v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0));
 export const orNA = (v) => (isPresent(v) ? (Array.isArray(v) ? v.join(', ') : String(v)) : 'N/A');
 
+// "8" + 27 -> "8 of 27". Scraped floors often carry the total already ("9th of 20 Floors"),
+// so the total is only appended when the floor text doesn't mention it.
+export function floorText(p) {
+  const floor = String(p?.floor ?? '').trim();
+  const total = String(p?.totalFloors ?? '').trim();
+  if (!total || /\bof\b/i.test(floor)) return floor;
+  return [floor, `of ${total}`].filter(Boolean).join(' ');
+}
+
 export function formatInr(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return '';
