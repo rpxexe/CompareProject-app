@@ -45,6 +45,8 @@ export default function SearchScreen({ navigation, route }) {
 
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
+  // Set when the server fixed a typo in the search text ("andhery" -> "andheri").
+  const [corrected, setCorrected] = useState(null);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [st, setSt] = useState({ loading: true, more: false, error: null });
@@ -89,6 +91,7 @@ export default function SearchScreen({ navigation, route }) {
         setItems((prev) => (append ? [...prev, ...r.items.filter((n) => !prev.some((o) => o.id === n.id))] : r.items));
         if (!append) setGeneration((g) => g + 1);
         setTotal(r.total);
+        if (!append) setCorrected(r.correctedSearch || null);
         setPage(r.page);
         setPages(r.pages);
         setSt({ loading: false, more: false, error: null });
@@ -171,16 +174,17 @@ export default function SearchScreen({ navigation, route }) {
           accessible
           accessibilityRole="header"
           accessibilityLiveRegion="polite"
-          accessibilityLabel={firstLoad ? "Search results, searching" : `Search results, ${total.toLocaleString("en-IN")} propert${total === 1 ? "y" : "ies"} found`}
+          accessibilityLabel={firstLoad ? "Search results, searching" : `Search results, ${total.toLocaleString("en-IN")} propert${total === 1 ? "y" : "ies"} found${corrected ? ` for ${corrected}` : ""}`}
         >
           <Text style={styles.headTitle}>Search Results</Text>
           <View style={styles.countRow}>
             {firstLoad ? (
               <Text style={styles.count}>Searching…</Text>
             ) : (
-              <Text style={styles.count}>
+              <Text style={styles.count} numberOfLines={1}>
                 <CountUp value={total} style={styles.count} />
                 {` Propert${total === 1 ? "y" : "ies"} Found`}
+                {corrected ? <Text style={styles.corrected}>{` for "${corrected}"`}</Text> : null}
               </Text>
             )}
             {st.loading && items.length ? <ActivityIndicator size="small" color={brand.violet} /> : null}
@@ -403,7 +407,8 @@ const styles = StyleSheet.create({
   headText: { flex: 1, marginLeft: 4, minWidth: 0 },
   headTitle: { fontSize: 21, fontWeight: "800", color: brand.ink },
   countRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 1 },
-  count: { fontSize: 12.5, fontWeight: "600", color: brand.inkSoft },
+  count: { flexShrink: 1, fontSize: 12.5, fontWeight: "600", color: brand.inkSoft },
+  corrected: { fontWeight: "700", color: brand.violet },
   bellDot: { position: "absolute", top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.error, borderWidth: 1.5, borderColor: brand.bg },
   filterDot: {
     position: "absolute",

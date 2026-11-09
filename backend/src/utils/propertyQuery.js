@@ -1,9 +1,14 @@
 const { escapeRegex, str } = require('./validate');
+const { parseSearch, wordRegex } = require('./searchText');
 const { FIELD, AMENITY_KEYS, TYPE_KEYS, TYPE_SEGMENTS, FACINGS, AVAILABILITY_KEYS, possessionKey, furnishingKey, toSqft } = require('./filterFields');
 
 const STATUS_FIELDS = ['possessionStatus', 'possession', 'status'];
 const TYPE_FIELDS = ['propertyType', 'propertyGroup', 'type'];
-const SEARCH_FIELDS = ['title', 'name', 'projectName', 'city', 'locality', 'address', 'developerName', 'builderName', 'propertyType', 'propertyGroup'];
+// Where each typed word is looked for. A listing matches when every word is found in one of them.
+const SEARCH_FIELDS = [
+  'title', 'name', 'projectName', 'city', 'locality', 'address', 'state', 'pincode', 'location.city', 'location.locality',
+  'developerName', 'builderName', 'propertyType', 'propertyGroup', 'amenities',
+];
 const TITLE_FIELDS = ['title', 'name', 'projectName'];
 
 const anyField = (fields, re) => ({ $or: fields.map((f) => ({ [f]: re })) });
@@ -85,13 +90,30 @@ function range(field, min, max) {
   return Object.keys(c).length ? { [field]: c } : null;
 }
 
-function buildPropertyFilter(q = {}, { includeHidden = false, now = Date.now() } = {}) {
+const given = (v) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length);
+
+// Free text -> the filters it names ("2 bhk", "under 50 lakh", "for rent", "villa", "ready to
+// move"...) merged into the query, plus the words left over. Filters picked on the filter screen win.
+function expandSearch(input) {
+  const search = str(input.search, 80);
+  if (!search) return { q: input, words: [] };
+  const { params, words } = parseSearch(search);
+  // Nothing usable in it (only symbols or filler): match nothing rather than everything.
+  if (!words.length && !Object.keys(params).length) return { q: input, words: [], none: true };
+  const q = { ...input };
+  for (const [k, v] of Object.entries(params)) if (!given(input[k])) q[k] = v;
+  return { q, words };
+}
+
+function buildPropertyFilter(input = {}, { includeHidden = false, now = Date.now() } = {}) {
   const and = [];
   const push = (c) => { if (c) and.push(c); };
   if (!includeHidden) and.push(PUBLIC);
 
-  const search = str(q.search, 80);
-  if (search) and.push(anyField(SEARCH_FIELDS, re(search)));
+  const { q, words, none } = expandSearch(input);
+  if (none) and.push({ _id: { $exists: false } });
+  // Every word somewhere in the listing, in any order: "rustomjee borivali", "sea view worli".
+  for (const w of words) and.push(anyField(SEARCH_FIELDS, wordRegex(w)));
   const city = str(q.city, 60);
   if (city) and.push({ city: re(city) });
   const locality = str(q.locality, 60);
@@ -192,8 +214,8 @@ function buildSort(sort) {
 // Relevance with a search term ranks title matches first; returns the extra condition that
 // splits the result set into [title matches, everything else].
 function titleMatch(q) {
-  const search = str(q.search, 80);
-  return search ? anyField(TITLE_FIELDS, re(search)) : null;
+  const { words } = expandSearch(q);
+  return words.length ? { $and: words.map((w) => anyField(TITLE_FIELDS, wordRegex(w))) } : null;
 }
 
 module.exports = { buildPropertyFilter, buildSort, titleMatch, SECTIONS, PUBLIC, HIDDEN_STATUSES, isPublic, CONTEXTS };
