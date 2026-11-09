@@ -1,3 +1,5 @@
+// Must stay first: starts Sentry before the rest of the app loads.
+import { Sentry, navigationIntegration } from './src/services/sentry';
 import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
@@ -27,7 +29,10 @@ const STARTUP_TIMEOUT = 6000;
 class SplashBoundary extends React.Component {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
-  componentDidCatch() { this.props.onFail?.(); }
+  componentDidCatch(error) {
+    Sentry.captureException(error, { tags: { boundary: 'splash' } });
+    this.props.onFail?.();
+  }
   render() { return this.state.failed ? null : this.props.children; }
 }
 
@@ -58,7 +63,11 @@ function Root() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.ivory }}>
       {appReady ? (
-        <NavigationContainer ref={navigationRef} theme={theme}>
+        <NavigationContainer
+          ref={navigationRef}
+          theme={theme}
+          onReady={() => navigationIntegration.registerNavigationContainer(navigationRef)}
+        >
           <StatusBar style="dark" />
           <AppNavigator hasStarted={!!hasStarted} />
           <LoginRequiredDialog navigationRef={navigationRef} />
@@ -95,7 +104,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export default function App() {
+function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
@@ -112,3 +121,6 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+// Sentry.wrap adds touch breadcrumbs (what the user tapped before an error) around the app.
+export default Sentry.wrap(App);

@@ -1,3 +1,4 @@
+const Sentry = require('@sentry/node');
 const env = require('../config/env');
 
 function notFound(req, res) {
@@ -15,6 +16,12 @@ function errorHandler(err, req, res, next) {
   else if (err.code === 11000) { status = 409; message = 'Duplicate entry'; }
   if (status >= 500 && !err.expose) {
     if (!env.isTest) console.error(err);
+    // Only real server faults go to Sentry; 4xx client mistakes (bad JSON, validation, 401s) do not.
+    // The request itself (method, URL, scrubbed headers) is attached automatically.
+    Sentry.captureException(err, {
+      user: req.user?.id ? { id: req.user.id } : undefined,
+      tags: { route: req.route?.path ? `${req.baseUrl}${req.route.path}` : req.baseUrl || req.path },
+    });
     message = 'Something went wrong on our side. Please try again.';
   }
   res.status(status).json({ message, ...(err.extra || {}) });

@@ -2,8 +2,8 @@
   "cli": { "version": ">= 12.0.0" },
   "build": {
     "development": { "developmentClient": true, "distribution": "internal", "android": { "buildType": "apk" } },
-    "preview": { "distribution": "internal", "android": { "buildType": "apk" }, "env": { "EXPO_PUBLIC_API_URL": "https://YOUR-BACKEND.onrender.com/api" } },
-    "production": { "android": { "buildType": "app-bundle" }, "env": { "EXPO_PUBLIC_API_URL": "https://YOUR-BACKEND.onrender.com/api" } }
+    "preview": { "distribution": "internal", "android": { "buildType": "apk" }, "env": { "EXPO_PUBLIC_API_URL": "https://YOUR-BACKEND.onrender.com/api", "EXPO_PUBLIC_SENTRY_DSN": "https://cdb5b92aa029079f2cbc6be9a7d50afb@o4510871806869504.ingest.us.sentry.io/4512399751774208", "EXPO_PUBLIC_SENTRY_ENVIRONMENT": "preview", "EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE": "0.2", "SENTRY_ORG": "brainflow-um", "SENTRY_PROJECT": "compareprojects-app" } },
+    "production": { "android": { "buildType": "app-bundle" }, "env": { "EXPO_PUBLIC_API_URL": "https://YOUR-BACKEND.onrender.com/api", "EXPO_PUBLIC_SENTRY_DSN": "https://cdb5b92aa029079f2cbc6be9a7d50afb@o4510871806869504.ingest.us.sentry.io/4512399751774208", "EXPO_PUBLIC_SENTRY_ENVIRONMENT": "production", "EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE": "0.2", "SENTRY_ORG": "brainflow-um", "SENTRY_PROJECT": "compareprojects-app" } }
   },
   "submit": { "production": {} }
 }

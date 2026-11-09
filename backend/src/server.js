@@ -1,6 +1,8 @@
 const dns = require("node:dns");
 dns.setServers(["1.1.1.1", "8.8.8.8"]); // Uses Cloudflare and Google DNS
 
+// Sentry must load before express/mongoose so it can instrument them.
+const Sentry = require("./instrument");
 const mongoose = require("mongoose");
 const env = require("./config/env");
 const { connectDb } = require("./config/db");
@@ -32,6 +34,8 @@ async function start() {
     setTimeout(() => process.exit(1), 10000).unref();
     server.close(async () => {
       await mongoose.disconnect().catch(() => {});
+      // Deliver any queued Sentry events before exiting.
+      await Sentry.close(2000).catch(() => {});
       process.exit(0);
     });
   };
@@ -39,7 +43,9 @@ async function start() {
   process.once("SIGINT", () => shutdown("SIGINT"));
 }
 
-start().catch((err) => {
+start().catch(async (err) => {
   console.error("Startup failed:", err.message);
+  Sentry.captureException(err, { tags: { phase: "startup" } });
+  await Sentry.flush(2000).catch(() => {});
   process.exit(1);
 });
