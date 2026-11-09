@@ -28,7 +28,7 @@ Shared services: **MongoDB Atlas** (data), **Firebase Authentication** (phone OT
 **Part 2 — Production**
 
 9. [Production checklist](#9-production-checklist)
-10. [Database (MongoDB Atlas)](#10-database-mongodb-atlas)
+10. [Production accounts: new Firebase project and database](#10-production-accounts-new-firebase-project-and-database)
 11. [Backend deployment (Render)](#11-backend-deployment-render)
 12. [Firebase for release builds](#12-firebase-for-release-builds)
 13. [Building the app (EAS)](#13-building-the-app-eas)
@@ -210,19 +210,142 @@ Sentry never receives tokens, passwords, request bodies or IP addresses; reports
 
 Do these in order the first time:
 
-1. **Database** — production Atlas user and network access (section 10).
+1. **Accounts** — new production Firebase project and MongoDB database, step by step (section 10).
 2. **Backend** — deploy to Render with production environment variables and a persistent disk (section 11).
 3. **Firebase** — add the release signing fingerprints (section 12).
 4. **App** — set the production API URL and build with EAS (section 13).
 5. **Store** — upload to Google Play (section 14).
 6. **Monitoring** — confirm Sentry receives production errors (section 15).
 
-## 10. Database (MongoDB Atlas)
+## 10. Production accounts: new Firebase project and database
 
-- Create a **dedicated database user** for production with a strong password (*Database Access*). Don't reuse developers' credentials.
-- *Network Access*: allow your host's outbound IPs. Render's free and standard plans don't have fixed IPs, so most setups use `0.0.0.0/0` together with the strong password.
-- Turn on Atlas **backups** for the cluster.
-- One-off, only when upgrading an older database: run `npm run migrate:collections` (dry run) and then `npm run migrate:collections -- --apply` from `backend/` with the API stopped. See the main `SETUP.md` for details.
+The Firebase project and MongoDB database used during development are **temporary**. Their keys have been in a public repo, so production gets fresh ones. Do these steps once, in order, before the first production build. Keep every new secret in a password manager; never paste it into the repo, chat or email.
+
+### Step 1 — Create the production Firebase project
+
+1. Go to <https://console.firebase.google.com> → **Add project**, e.g. `compareprojects-prod`. Google Analytics is optional.
+2. **Upgrade to the Blaze (pay-as-you-go) plan** (*⚙ → Usage and billing → Details & settings*). Phone sign-in can't send SMS on the free plan.
+3. In Google Cloud Console → *Billing → Budgets & alerts*, create a **budget alert** (for example ₹2,000/month), so unexpected SMS costs email you.
+
+### Step 2 — Turn on phone sign-in
+
+1. *Build → Authentication → Get started → Sign-in method* → enable **Phone**.
+2. *Authentication → Settings → SMS region policy* → **Allow** → select **India** only. This blocks SMS fraud to other countries.
+3. Add **no** test phone numbers in production (or remove them before launch).
+
+### Step 3 — Register the Android app
+
+1. *Project settings → General → Your apps → Add app → Android*.
+2. Package name: `com.compareproject.mobile` (must match `frontend/app.json`). App nickname: `CompareProjects`.
+3. Add the **SHA-1 and SHA-256** fingerprints (*Project settings → Your apps → Add fingerprint*):
+   - **EAS upload key:** `cd frontend && eas credentials` → *Android → production → Keystore*.
+   - **Google Play app-signing key:** available after the first Play upload (section 14) under Play Console → *App integrity → App signing*. Come back and add it then; without it, login fails for users who install from Play.
+4. Download the production **`google-services.json`**. Don't put it in the repo yet (Step 5 explains where it goes).
+
+### Step 4 — Restrict the Android API key
+
+Firebase creates an unrestricted key that ships inside the app. Restrict it straight away so it only works for your app:
+
+1. Google Cloud Console (same project) → *APIs & Services → Credentials* → open **Android key (auto created by Firebase)**.
+2. **Application restrictions** → *Android apps* → add `com.compareproject.mobile` with **each SHA-1** from Step 3 (upload key and Play signing key).
+3. **API restrictions** → *Restrict key* → tick only:
+   - Identity Toolkit API
+   - Token Service API
+   - Firebase Installations API
+4. **Save**. Changes take up to 5 minutes. If a build later gets *"API key not valid"* or *"app not authorized"*, a SHA-1 is missing here or in Step 3.
+
+### Step 5 — Give the production `google-services.json` to EAS (not to git)
+
+Developers keep using the development `frontend/google-services.json`; release builds get the production one from EAS:
+
+1. Upload it as a secret file:
+   ```bash
+   cd frontend
+   eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./path/to/production/google-services.json --environment production --environment preview --visibility secret
+   ```
+2. Create `frontend/app.config.js` so builds use that file when it's present:
+   ```js
+   // Uses the production Firebase config on EAS builds (GOOGLE_SERVICES_JSON secret file),
+   // and the development frontend/google-services.json everywhere else.
+   module.exports = ({ config }) => ({
+     ...config,
+     android: {
+       ...config.android,
+       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? config.android.googleServicesFile,
+     },
+   });
+   ```
+3. Delete the downloaded production file from your Downloads folder once it's uploaded.
+
+### Step 6 — Create the backend's Firebase admin key
+
+1. Firebase → *Project settings → Service accounts → Generate new private key* → downloads a JSON file.
+2. Turn it into one line:
+   ```bash
+   node -e "console.log(JSON.stringify(require('./<downloaded-file>.json')))"
+   ```
+3. You'll paste this into Render as `FIREBASE_SERVICE_ACCOUNT` (section 11.3), with `FIREBASE_PROJECT_ID` = the new project id. Then delete the downloaded file.
+
+### Step 7 — Recommended before public launch: App Check
+
+App Check makes Firebase accept sign-in requests only from your genuine app installed from Play, so stolen keys can't trigger SMS.
+
+The app side is already done (`frontend/src/services/appCheck.js`: Play Integrity in release builds, debug provider in debug builds). In the console:
+
+1. Firebase → *Build → App Check* → register the Android app with **Play Integrity** (link the Play Console app when asked), with the SHA-256 fingerprints from Step 3.
+2. For debug builds, open the app once and find `Enter this debug secret into the allow list` in logcat (`adb logcat | grep -i "debug secret"`). Add that token under *App Check → Apps → ⋮ → Manage debug tokens*. Alternatively, put a token you created there in `EXPO_PUBLIC_APPCHECK_DEBUG_TOKEN` in `frontend/.env`.
+3. Ship a release build and watch *App Check → APIs → Authentication* metrics for a few days. When almost all requests show as **verified**, click **Enforce**. From then on only genuine installs can sign in or request SMS.
+
+### Step 8 — Create the production database (MongoDB Atlas)
+
+1. <https://cloud.mongodb.com> → **New Project** (e.g. `compareprojects-prod`) → **Build a cluster**. Choose a region close to your Render region (e.g. Mumbai `ap-south-1` or Singapore). M10 or higher gives you continuous backups; M0 (free) is fine only for a soft launch.
+2. *Security → Database Access* → **Add new database user**: username `compareprojects-api`, **autogenerated password**, role *Read and write to any database*. Don't reuse the development user.
+3. *Security → Network Access* → **Add IP address**. Render has no fixed outbound IPs on most plans, so use `0.0.0.0/0` (protected by the strong password). If you move to a host with static IPs, list only those.
+4. *Database → Connect → Drivers* → copy the connection string, put the password in, and add the database name, e.g. `.../comparedb?retryWrites=true&w=majority`. This becomes `MONGODB_URI` on Render.
+5. Turn on **backups** (*Backup* tab) on paid tiers.
+
+### Step 9 — Copy the listings into the production database
+
+Production needs the property listings, but not development's test users or enquiries. With the [MongoDB Database Tools](https://www.mongodb.com/try/download/database-tools) installed:
+
+```bash
+# Export listings from the development database
+mongodump --uri "<DEVELOPMENT MONGODB_URI>" --collection properties --out ./dump
+
+# Import into production
+mongorestore --uri "<PRODUCTION MONGODB_URI>" ./dump
+```
+
+If the website or scraper writes listings to this collection, point it at the production database too. Then, from `backend/` with `MONGODB_URI` set to production:
+
+```bash
+npm run check:db       # confirms the listing count
+npm run sync:filters   # rebuilds search-filter fields once
+```
+
+Delete the `./dump` folder afterwards.
+
+### Step 10 — Create the production backend secrets
+
+- **New `JWT_SECRET`** (never the development one):
+  ```bash
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  ```
+- Collect the values for Render: `MONGODB_URI` (Step 8), `FIREBASE_PROJECT_ID` and `FIREBASE_SERVICE_ACCOUNT` (Step 6), `JWT_SECRET`, `SENTRY_DSN`. Enter them in section 11.3.
+
+### Step 11 — Recreate accounts that production needs
+
+- **Developer accounts:** with `MONGODB_URI` pointing at production, run `npm run create:developer -- --email ... --name "..."` for each builder and send them the printed password securely.
+- **Customer accounts** are created automatically the first time someone signs in with their phone.
+
+### Step 12 — After the production launch: shut down the development accounts
+
+Once production works (section 16 checklist passes):
+
+1. **Delete the temporary Atlas database/cluster** (or at least delete its database user). Its password is in old git history.
+2. **Development Firebase project:** delete it, or delete its API key in Google Cloud Console → *Credentials* if developers still need a sandbox (then create a new restricted one).
+3. **GitHub:** under *Security → Secret scanning*, close the old alerts as **Revoked**.
+4. Remove any copies of production secrets from local `.env` files you no longer need.
 
 ## 11. Backend deployment (Render)
 
@@ -263,8 +386,8 @@ Set these under *Environment* (never in the repo):
 | `MONGODB_URI` | production connection string | yes |
 | `MONGODB_COLLECTION` | `properties` | yes |
 | `JWT_SECRET` | new random 64-character string (not the dev one) | yes |
-| `FIREBASE_PROJECT_ID` | Firebase project id | yes |
-| `FIREBASE_SERVICE_ACCOUNT` | service-account JSON on one line | yes |
+| `FIREBASE_PROJECT_ID` | id of the **production** Firebase project (section 10, Step 1) | yes |
+| `FIREBASE_SERVICE_ACCOUNT` | its admin key on one line (section 10, Step 6) | yes |
 | `TRUST_PROXY` | `1` (Render has one proxy in front) | yes |
 | `PUBLIC_URL` | public https origin of the API, e.g. `https://api.compareprojects.com` | recommended (image URLs) |
 | `CORS_ORIGINS` | website origins, comma-separated; empty if only the app uses the API | optional |
@@ -286,13 +409,13 @@ Add a custom domain (*Settings → Custom Domains*) if you want `api.yourdomain.
 
 ## 12. Firebase for release builds
 
-Release apps are signed with a different key than your debug build, so phone login fails until Firebase knows the release fingerprints:
+Release apps are signed with a different key than your debug build, so phone login fails until the **production** Firebase project (section 10) knows the release fingerprints. Repeat this whenever a signing key is added, e.g. after the first Play upload:
 
 1. **EAS upload key:** `cd frontend && eas credentials` → *Android → production → Keystore* → copy SHA-1 and SHA-256.
-2. **Google Play app signing key** (after the first Play upload): Play Console → *App integrity → App signing* → copy SHA-1 and SHA-256.
+2. **Google Play app-signing key** (after the first Play upload): Play Console → *App integrity → App signing* → copy SHA-1 and SHA-256.
 3. Add all of them in Firebase → *Project settings → Your apps → Android app → Add fingerprint*.
-4. Download the updated `google-services.json` into `frontend/` and commit it.
-5. Remove test phone numbers you don't want working in production, and check *Authentication → Settings → SMS region policy*.
+4. Add each **SHA-1** to the API key's Android restriction too (section 10, Step 4).
+5. Download the updated `google-services.json` and replace the EAS secret file (section 10, Step 5): `eas env:update --name GOOGLE_SERVICES_JSON ...`. Don't commit it.
 
 ## 13. Building the app (EAS)
 
