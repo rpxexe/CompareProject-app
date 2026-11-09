@@ -1,154 +1,139 @@
-# CompareProjects
+# COMPARE PROJECT – premium real-estate mobile app
 
-A real-estate mobile app for India: discover, compare and post properties. Android first, built with **React Native (Expo)**, backed by a **Node.js / Express / MongoDB** API.
+Discover, compare and post properties. Android-first React Native (Expo) app with a Node.js / Express / MongoDB backend.
 
-> **Setting it up?** Read **[docs/setup.md](docs/setup.md)**: step-by-step local setup and production deployment.
-> **Security?** Read **[docs/security.md](docs/security.md)**: what's protected and what's planned.
+## 1. What it does
+* **Home** – greeting, city selector, search, quick type chips, Featured / New launches / Top rated / Upcoming rails, popular cities, recently added.
+* **Compare Project** – pick up to 4 projects and see them side by side (price, BHK, area, possession, parking, amenities, RERA, rating …). Missing data shows `N/A`.
+* **Post Property** – validated form; saved to the existing `properties` collection with `dataSource: "manual"` and live immediately. Developer accounts can only list for sale.
+* **New Project** – New Launch / Upcoming / Under Construction / Ready to Move. A category appears **only if MongoDB has data for it**.
+* **Ratings & reviews** – 1–5 star rating + optional comment on every property, rating distribution, averages shown on cards, a *Top rated* rail and *Top rated* sort. One rating per user per property (editable); owners cannot rate their own listing.
+* **Property details** – swipe gallery, facts, developer, RERA, amenities/facilities/security, floor plans, virtual tour, brochure, map link, save, compare, share, sticky **Enquire Now**.
+* **Profile** – saved properties, my posted properties, my enquiries, settings, logout. The app has no admin screens.
+* Login: **mobile + OTP via Firebase Authentication**, animated splash, welcome, purpose selection (Buyer / Investor / Owner / Resale / Broker), animated welcome.
 
----
+All property content comes from MongoDB through the API. **No demo/fake listings exist anywhere in the shipped app.** (Test fixtures live only in `backend/test/` and the test-suite's in-memory database.)
 
-## What the app does
+## 2. Tech stack
+Expo SDK 54 · React Native 0.81 · React Navigation 7 · Animated API (no heavy animation library) · Node ≥ 20 · Express 5 · Mongoose 8 · JWT · MongoDB Atlas.
 
-| Area | What users get |
-|---|---|
-| **Home** | Greeting, city selector, search, quick property-type chips, Featured / New launches / Top rated / Upcoming rails, popular cities, recently added. |
-| **Search** | Text search with filters (price, BHK, property type, possession, furnishing, area, amenities…), sorting, and listings near your location. |
-| **Compare** | Pick up to 4 projects and see them side by side: price, BHK, area, possession, parking, amenities, RERA, rating. Missing data shows `N/A`. |
-| **Property details** | Photo gallery, key facts, developer, RERA, amenities, floor plans, virtual tour, brochure, map, save, compare, share, and a sticky **Enquire Now**. |
-| **Ratings & reviews** | 1–5 stars with an optional comment, one per user per property (editable). Owners can't rate their own listing. |
-| **Post property** | A validated form with photo upload. Listings go live in the shared `properties` collection. |
-| **New projects** | New Launch / Upcoming / Under Construction / Ready to Move. A category appears only when there's data for it. |
-| **Profile** | Saved properties, my listings, my enquiries, notifications, settings, log out. |
-| **Sign-in** | Customers: **mobile number + OTP** (Firebase). Builders: **developer email + password** (accounts created by an admin). |
-
-All listings come from the real database through the API; the app contains no demo or fake listings.
-
-## How it fits together
-
+## 3. Folder structure
 ```
- Android app (Expo / React Native)
-   │  phone OTP ───────────────► Firebase Authentication (+ App Check)
-   │  REST /api/...
-   ▼
- Backend API (Node.js / Express)  ──► MongoDB Atlas (listings, accounts, enquiries…)
-   │                                   ▲
-   └─ verifies Firebase tokens          └─ shared with the website/scraper and the CRM
- App + API errors ──► Sentry (brainflow-um)
+backend/   src/{config,middleware,models,routes,utils}  test/  scripts/
+frontend/  src/{components,context,hooks,navigation,screens,services,theme,utils}  assets/  test/
+README.md  SETUP.md  TEST-CASES.md
 ```
 
-- **Customers** sign in with Firebase phone OTP; the app swaps the Firebase token for an app session at `POST /api/v2/customers/register`.
-- **The CRM** (separate project) manages staff, roles and enquiries by reading MongoDB directly; this API has no admin routes.
+## 4. MongoDB setup
+1. Use your existing Atlas cluster that already holds the `properties` collection.
+2. Atlas → *Network Access*: allow your IP (or `0.0.0.0/0` for a hosted backend).
+3. Put the connection string **only** in `backend/.env` (see below). Never in the app, never in Git.
+4. The app **reads** existing property documents untouched. It creates its own collections: `app_customers` (phone accounts), `app_users` (email/password accounts: developers, CRM staff), `enquiries`, `reviews`, `property_ratings`. New posted properties are inserted into `properties`.
+5. Verify access and see which field names your documents use: `cd backend && npm run check:db`.
 
-## Tech stack
-
-| Part | Technology |
-|---|---|
-| Mobile app | Expo SDK 54, React Native 0.81, React Navigation 7, React Native Firebase (Auth, App Check), Sentry |
-| Backend | Node.js 20.19+, Express 5, Mongoose 8, Zod validation, Helmet, sharp (image processing), Firebase Admin, Sentry |
-| Database | MongoDB Atlas |
-| Builds & hosting | EAS Build (app), Render (API) |
-
-## Repository layout
-
-```
-backend/                 API server
-  src/
-    server.js            start-up (loads Sentry first, connects MongoDB)
-    app.js               Express app: security headers, CORS, routes
-    instrument.js        Sentry set-up
-    config/              environment and database
-    routes/ controllers/ API endpoints (v1 for the app, v2 = mobile API contract)
-    middleware/          auth (JWT + Firebase), error handling
-    models/              MongoDB models
-    utils/               validation, rate limiting, uploads, search helpers
-  scripts/               check-db, create-developer, sync-filters, migrate-collections
-  test/                  automated tests (no database needed)
-frontend/                Android app
-  App.js                 root: Sentry, App Check, providers, navigation
-  src/
-    screens/ components/ UI
-    navigation/          app navigator
-    context/             auth, saved, compare, toast, location state
-    services/            API client, Firebase phone auth, App Check, Sentry
-    utils/ theme/        helpers and design tokens
-  app.json  eas.json     Expo and EAS build config
-docs/                    setup.md, security.md
-```
-
-## Quick start (local)
-
-You need Node.js 20.19+, Android Studio (SDK + `adb`), and a phone with USB debugging or an emulator. Full details and troubleshooting are in [docs/setup.md](docs/setup.md).
-
+## 5. Backend setup
 ```bash
-# 1. Backend
 cd backend
 npm install
-cp .env.example .env          # fill in MONGODB_URI, JWT_SECRET, FIREBASE_* (see docs/setup.md §3)
-npm run check:db              # confirms the database connection
-npm run dev                   # http://localhost:5000/api/health
+cp .env.example .env      # then edit MONGODB_URI, JWT_SECRET
+npm test                  # no database needed
+npm run check:db          # optional: real MongoDB connectivity check
+npm start                 # http://0.0.0.0:5000/api/health
+```
 
-# 2. App (second terminal, phone connected by USB)
+## 6. Frontend setup
+```bash
 cd frontend
 npm install
-cp .env.example .env          # EXPO_PUBLIC_API_URL=http://localhost:5000/api
-npm run android               # first time: builds and installs the app (10–20 min)
-npm run device                # every day after that: starts the dev server
+cp .env.example .env      # set EXPO_PUBLIC_API_URL
+npx expo start -c
 ```
 
-**Expo Go won't work:** phone login needs Firebase's native module, so the app runs as its own development build (`npm run android`).
+## 7. Environment variables
+| File | Variable | Purpose |
+|---|---|---|
+| backend/.env | `MONGODB_URI` | **required** Atlas connection string |
+| | `MONGODB_COLLECTION` | property collection, default `properties` |
+| | `NODE_ENV` | `development`, `test` or `production`. **Missing/unknown = treated as production** (no open CORS) |
+| | `JWT_SECRET` | 24+ random chars (required) |
+| | `TRUST_PROXY` | reverse proxies in front of the API (default `1`; `0` when exposed directly). Rate limits use the client IP derived from it |
+| | `CORS_ORIGINS` | browser origins allowed. Production with this empty sends **no** CORS headers (the mobile app doesn't need CORS) |
+| | `PUBLIC_URL` | public https origin used in uploaded image URLs |
+| | `FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT` | **required for phone sign-in** and the /api/v2 customer routes; the service account is needed for token revocation checks |
+| frontend/.env | `EXPO_PUBLIC_API_URL` | backend address ending in `/api` |
 
-## Accounts and roles
+## 8. Phone sign-in (Firebase OTP)
+Phone sign-in uses **Firebase Authentication**: the app asks Firebase to send the SMS, Firebase checks the 6-digit code (on Android it can read the SMS and sign in by itself), and the app then exchanges the Firebase ID token for an app session at `POST /api/v2/customers/register`. The backend sends no SMS and stores no codes.
 
-| Account | Signs in with | Created by | Stored in |
-|---|---|---|---|
-| Customer (`user` / `broker`) | Phone + OTP (Firebase) | Automatically on first sign-in | `app_customers` |
-| Developer (builder) | Email + password | Admin: `npm run create:developer -- --email ... --name "..."` | `app_users` |
+* Firebase console → *Authentication → Sign-in method* → enable **Phone**, and allow India under *Settings → SMS region policy*.
+* Android: add the app's SHA-1 and SHA-256 keys (debug and release) to the Firebase Android app, then download `google-services.json` into `frontend/`.
+* Backend: `FIREBASE_PROJECT_ID` and `FIREBASE_SERVICE_ACCOUNT` are required for sign-in.
+* Phone sign-in needs a development or release build (`npx expo run:android` / EAS). **Expo Go has no Firebase native module**, so the login screen shows an error there.
+* Testing without real SMS: add **test phone numbers** with fixed codes under *Authentication → Sign-in method → Phone → Phone numbers for testing*.
+* Firebase enforces its own sending limits and SMS-abuse protection; existing phone accounts are linked to Firebase automatically the first time they sign in with the same number.
 
-- Choosing **Broker** as a purpose gives the `broker` role. Users can't give themselves any other role; staff roles are managed in the CRM.
-- Developers only post and manage listings for sale.
-- **Log out** signs the account out on every device.
+## 9. Backend OTP and Twilio (removed)
+The backend's own OTP (`/api/auth/send-otp`, `/api/auth/verify-otp`, `OTP_*` and `TWILIO_*` settings) was removed; the old `otps` collection can be dropped.
 
-## Data
+## 10. Android physical phone
+1. Phone and PC on the same Wi-Fi. Find the PC IP (`ipconfig` / `ip a`).
+2. `frontend/.env` → `EXPO_PUBLIC_API_URL=http://<PC_LAN_IP>:5000/api`
+3. Allow port 5000 in the PC firewall. Open `http://<PC_LAN_IP>:5000/api/health` in the phone browser – it must show `{"ok":true…}`.
+4. `npx expo start -c`, open **Expo Go** and scan the QR code.
+**USB alternative:** enable USB debugging, `adb reverse tcp:5000 tcp:5000`, then use `http://localhost:5000/api`.
 
-The API **reads** the shared `properties` collection (also filled by the website/scraper) and writes new listings to it. Its own collections:
+## 11. Android emulator
+`EXPO_PUBLIC_API_URL=http://10.0.2.2:5000/api`, start an AVD, press `a` in the Expo terminal.
 
-| Collection | Contents |
-|---|---|
-| `app_customers` | Phone (customer) accounts |
-| `app_users` | Email/password accounts (developers) |
-| `enquiries` | Enquiries from the app (read by the CRM) |
-| `customer_leads` | Contact forms from `/api/v2/leads/customer` (read by the CRM) |
-| `reviews`, `property_ratings` | Ratings and reviews |
-| `notifications` | In-app notifications |
-
-## API overview
-
-- **Health:** `GET /api/health`
-- **Auth:** `POST /api/v2/customers/register` (Firebase phone sign-in) · `POST /api/auth/signin` (developers) · `POST /api/auth/logout-all`
-- **User:** `GET|PATCH /api/users/me` · `GET /api/users/me/properties` · `GET /api/users/me/enquiries`
-- **Properties:** `GET /api/properties` (search, filters, sort, paging) · `GET /api/properties/{categories,facets,top-rated,compare,saved/list,:id}` · `POST|DELETE /api/properties/:id/save` · `GET|POST /api/properties/:id/reviews`
-- **Posting:** `POST /api/post-property` · `POST /api/uploads`
-- **Enquiries:** `POST /api/enquiries`
-- **Mobile API contract (v2):** `/api/v2/*`; see [MOBILE_API.md](MOBILE_API.md)
-
-## Testing
-
+## 12. Testing
 ```bash
-cd backend  && npm test            # API, auth, security, uploads, rate limits, Firebase sign-in
-cd frontend && npm test            # validation, compare logic, error mapping
-cd frontend && npm run bundle:check   # builds the whole app bundle
+cd backend  && npm test      # API, auth, roles, ratings, Firebase sign-in, startup guards
+cd frontend && npm test      # validation, compare logic, error mapping
+cd frontend && npm run bundle:check   # compiles the whole app with Metro
 ```
+Manual device checklist: `TEST-CASES.md`.
 
-Manual device checklist: [TEST-CASES.md](TEST-CASES.md).
+## 13. Roles and enquiries
+Roles: `user`, `broker`, `developer`. User and staff management lives in the separate CRM; the API has no admin routes, and a phone login never changes a role.
+* Choosing “Broker” as purpose gives the `broker` role.
+* Email/password accounts (the Login screen's Developer card) are `developer`s: they only post listings for sale and manage them; they get no browsing screens.
+* **Developer accounts are created by an administrator only** (there is no public sign-up; `POST /api/auth/signup` returns 404):
+  ```bash
+  cd backend
+  npm run create:developer -- --email sales@builder.com --name "Skyline Builders" [--phone 9876543210]
+  ```
+  It generates a strong random password and prints it **once** (only a scrypt hash is stored). Hand it to the developer over a secure channel. Duplicate emails are refused.
+* **Sign out everywhere:** `POST /api/auth/logout-all` (signed in) bumps the account's `tokenVersion`, so every JWT issued before (all devices) gets 401, and revokes the linked Firebase session. The app calls it on every Log out (best effort – local sign-out and data wipe happen even offline).
+* **Enquiries for the CRM:** the backend has no CRM API. Enquiries from the app are saved in the `enquiries` collection and contact forms from `/api/v2/leads/customer` in `customer_leads`; the CRM reads them from MongoDB directly.
 
-## Documentation
+### API summary
+`GET /api/health` · `POST /api/v2/customers/register` (Firebase phone sign-in) · `POST /api/auth/signin` · `POST /api/auth/logout-all` · `GET|PATCH /api/users/me` · `GET /api/users/me/{properties,enquiries}` · `GET /api/properties` (search, filters, sort, paging) · `GET /api/properties/{categories,facets,top-rated,compare,saved/list,:id}` · `POST|DELETE /api/properties/:id/save` · `GET|POST /api/properties/:id/reviews` · `DELETE /api/properties/:id/reviews/mine` · `POST /api/post-property` · `POST /api/enquiries` · Mobile API contract (Firebase customer auth): `/api/v2/*`, see `MOBILE_API.md`.
 
-| Document | Use it for |
-|---|---|
-| [docs/setup.md](docs/setup.md) | **Start here.** Local setup, production accounts, Render, EAS, Google Play, Sentry |
-| [docs/security.md](docs/security.md) | Security measures in place and planned improvements |
-| [MOBILE_API.md](MOBILE_API.md) | The v2 mobile API contract |
-| [TEST-CASES.md](TEST-CASES.md) | Manual and automated test cases |
-| [SETUP.md](SETUP.md) | Older setup guide: database checks and the one-off collection migration |
-| [ERROR_FIX_LOG.md](ERROR_FIX_LOG.md), [SOLUTIONS.md](SOLUTIONS.md) | History of past setup problems and their fixes |
-| [README_UI_UPDATE.md](README_UI_UPDATE.md) | Notes from the UI redesign |
+## 14. Production deployment (Render / Railway)
+* Root directory `backend`, build `npm install`, start `npm start`.
+* Environment: `NODE_ENV=production`, `MONGODB_URI`, `JWT_SECRET`, `TRUST_PROXY` (1 on Render/Railway), `PUBLIC_URL`, `FIREBASE_PROJECT_ID` + `FIREBASE_SERVICE_ACCOUNT`, optionally `CORS_ORIGINS`, `OTP_GLOBAL_HOURLY_LIMIT`.
+* Production `/api/health` answers only `{"ok":true}`.
+* Uploaded photos are re-encoded with `sharp` (EXIF/GPS stripped, JPEG) – `npm install` on the server fetches its Linux binary.
+* Health check path `/api/health`. Use the **https** URL in the app (`EXPO_PUBLIC_API_URL=https://…/api`) – Android release builds block plain `http://`.
+
+## 15. EAS Android build
+```bash
+npm i -g eas-cli && eas login
+cd frontend
+eas build:configure                       # first time only (fills extra.eas.projectId)
+# edit eas.json → set EXPO_PUBLIC_API_URL to your https backend
+eas build --platform android --profile preview      # installable APK
+eas build --platform android --profile production   # AAB for Play Store
+```
+Local native build: `npx expo prebuild --platform android && npx expo run:android`.
+
+## 16. Troubleshooting
+* **“Cannot reach the server”** – wrong `EXPO_PUBLIC_API_URL`, firewall, different Wi-Fi, or you forgot `npx expo start -c` after editing `.env`. Settings → *Check server connection* tests it. A release build without `EXPO_PUBLIC_API_URL` has no fallback address.
+* **Config error: MONGODB_URI is missing** – create `backend/.env`.
+* **MongoDB timeout** – add your IP in Atlas Network Access.
+* **No OTP arrives** – check Phone sign-in is enabled in Firebase and India is allowed in the SMS region policy; for testing use Firebase test phone numbers.
+* **"This app build isn't set up for phone sign-in"** – add the build's SHA-1/SHA-256 keys to the Firebase Android app and rebuild with the new `google-services.json`.
+* **"Phone sign-in needs the installed app build"** – you're in Expo Go; use `npx expo run:android` or an EAS build.
+* **Every /api/v2 request returns 401 "Invalid token"** – set `FIREBASE_SERVICE_ACCOUNT` (needed for token revocation checks).
+* **Empty lists** – the database really has no matching documents; run `npm run check:db`.
+* **Images blank** – the document's image URLs are missing/unreachable; a placeholder is shown, nothing is invented.

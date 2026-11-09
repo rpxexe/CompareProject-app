@@ -1,6 +1,5 @@
 // Must stay first: starts Sentry before the rest of the app loads.
 import { Sentry, navigationIntegration } from './src/services/sentry';
-import { startAppCheck } from './src/services/appCheck';
 import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
@@ -20,9 +19,6 @@ import { useFonts } from 'expo-font';
 import { FONT_FILES } from './src/components/AppText';
 import { colors } from './src/theme';
 
-
-// Firebase App Check must be running before the first phone sign-in request.
-startAppCheck();
 
 const theme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: colors.ivory, card: colors.white, text: colors.ink, primary: colors.primary, border: colors.line } };
 
