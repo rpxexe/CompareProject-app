@@ -7,6 +7,7 @@ const { PUBLIC } = require("../utils/propertyQuery");
 const { FIELD } = require("../utils/filterFields");
 const { cached } = require("../utils/cache");
 const Fuse = require("fuse.js");
+const { parseQuery } = require("../utils/searchText");
 const { toContractProperty, toCard } = require("../utils/contractProperty");
 
 const ff = (k) => `${FIELD}.${k}`;
@@ -227,40 +228,6 @@ const getProperties = async (req, res) => {
 };
 
 // ----- Instant search -----------------------------------------------------------------------
-const UNIT = "(crores?|cr|lakhs?|lacs?|l|k)?";
-const NUM = "(\\d+(?:\\.\\d+)?)";
-const money = (n, unit) => {
-  const u = (unit || "").toLowerCase();
-  const mult = u.startsWith("c") ? 1e7 : u.startsWith("l") ? 1e5 : u === "k" ? 1e3 : 1;
-  return Math.round(parseFloat(n) * mult);
-};
-
-// "3bhk under 50 lakh in Whitefield" -> { bhk: 3, maxPrice: 5000000, place: "whitefield", text: "" }
-function parseQuery(text) {
-  let t = ` ${text.toLowerCase()} `;
-  const out = {};
-  const take = (re, fn) => {
-    const m = t.match(re);
-    if (m) {
-      fn(m);
-      t = t.replace(m[0], " ");
-    }
-  };
-  take(new RegExp(`\\bbetween\\s+${NUM}\\s*${UNIT}\\s+(?:and|to|-)\\s+${NUM}\\s*${UNIT}\\b`), (m) => {
-    out.minPrice = money(m[1], m[2] || m[4]);
-    out.maxPrice = money(m[3], m[4]);
-  });
-  take(new RegExp(`\\b(?:under|below|less than|within|upto|up to|max)\\s+${NUM}\\s*${UNIT}\\b`), (m) => { out.maxPrice = money(m[1], m[2]); });
-  take(new RegExp(`\\b(?:above|over|more than|min|starting|from)\\s+${NUM}\\s*${UNIT}\\b`), (m) => { out.minPrice = money(m[1], m[2]); });
-  take(/\b(\d{1,2})\s*-?\s*bhk\b/, (m) => { out.bhk = Number(m[1]); });
-  take(/\brera(?:\s*(?:approved|registered))?\b/, () => { out.rera = true; });
-  take(/\bsemi[\s-]*furnished\b/, () => { out.furnishing = "semi"; });
-  take(/\bun[\s-]*furnished\b/, () => { out.furnishing = "unfurnished"; });
-  take(/\b(?:fully\s+)?furnished\b/, () => { out.furnishing = "furnished"; });
-  take(/\bin\s+([\p{L}][\p{L}\s.-]{1,60}?)\s*$/u, (m) => { out.place = m[1].trim(); });
-  out.text = t.replace(/\s+/g, " ").trim();
-  return out;
-}
 
 function structured(p, { withPlace = true } = {}) {
   const conds = [PUBLIC];

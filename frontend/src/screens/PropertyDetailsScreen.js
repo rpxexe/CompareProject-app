@@ -25,7 +25,7 @@ import { isReducedMotion } from "../hooks/useReducedMotion";
 import { api } from "../services/api";
 import { openExternal } from "../utils/links";
 import { propertyWebUrl } from "../config/web";
-import { isPresent, listingName } from "../utils/format";
+import { floorText, isPresent, listingName } from "../utils/format";
 import { brand, colors, fonts, gradients, radius, shadow } from "../theme";
 import Text from "../components/AppText";
 
@@ -428,7 +428,7 @@ export default function PropertyDetailsScreen({ navigation, route }) {
     ["Area", p.area],
     ["Type", p.propertyType],
     ["Possession", p.possessionStatus],
-    ["Floor", [p.floor, p.totalFloors && `of ${p.totalFloors}`].filter(Boolean).join(" ")],
+    ["Floor", floorText(p)],
     ["Parking", p.parkings],
     ["Facing", p.facing],
     ["Furnishing", p.furnishing],

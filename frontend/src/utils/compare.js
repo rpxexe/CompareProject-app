@@ -1,4 +1,4 @@
-import { orNA, isPresent } from './format.js';
+import { orNA, isPresent, floorText } from './format.js';
 
 export const COMPARE_MAX = 3;
 
@@ -11,7 +11,7 @@ export const COMPARE_ROWS = [
   { key: 'area', label: 'Area' },
   { key: 'propertyType', label: 'Type' },
   { key: 'possessionStatus', label: 'Possession' },
-  { key: 'floor', label: 'Floor', get: (p) => [p.floor, p.totalFloors && `of ${p.totalFloors}`].filter(Boolean).join(' ') },
+  { key: 'floor', label: 'Floor', get: floorText },
   { key: 'parkings', label: 'Parking' },
   { key: 'facing', label: 'Facing' },
   { key: 'furnishing', label: 'Furnishing' },
@@ -86,7 +86,7 @@ export const KEY_ROWS = [
   { key: 'furnishing', label: 'Furnishing', icon: 'bed-outline' },
   { key: 'unitsAvailable', label: 'Units Available', icon: 'layers-outline' },
   { key: 'developerName', label: 'Developer', icon: 'construct-outline' },
-  { key: 'floor', label: 'Floor', icon: 'stats-chart-outline', get: (p) => [p.floor, p.totalFloors && `of ${p.totalFloors}`].filter(Boolean).join(' ') },
+  { key: 'floor', label: 'Floor', icon: 'stats-chart-outline', get: floorText },
   { key: 'parkings', label: 'Parking', icon: 'car-outline', score: (p) => maxNumber(p.parkings) },
   { key: 'facing', label: 'Facing', icon: 'compass-outline' },
   { key: 'reraNumber', label: 'RERA', icon: 'document-text-outline' },

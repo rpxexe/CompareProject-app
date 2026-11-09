@@ -20,7 +20,7 @@ const loadDevelopers = () => {
 };
 
 // Suggestions under the filter screen's search field. Empty field: recent searches. While typing:
-// matching locations (/properties/locations), project names (listing titles in the current tab)
+// matching locations (/properties/locations), listings whose text matches every typed word (current tab)
 // and developers (/properties/facets). Each pick turns into a real filter.
 export default function SearchSuggestions({ text, context, onSearchText, onPickRecent, onPickLocation, onPickProject, onPickDeveloper }) {
   const typed = text.trim();
@@ -51,7 +51,7 @@ export default function SearchSuggestions({ text, context, onSearchText, onPickR
       const [locations, projects, developers] = await Promise.all([
         api.locations({ search: typed, limit: PER_SECTION }).then((r) => r?.locations || []).catch(() => []),
         api
-          .properties({ context, project: typed, limit: 12, sort: "relevance" }, { signal: ctrl.signal })
+          .properties({ context, search: typed, limit: 12, sort: "relevance" }, { signal: ctrl.signal })
           .then((r) => uniqueBy((r?.items || []).filter((p) => p.title), (p) => p.title.toLowerCase()).slice(0, PER_SECTION))
           .catch(() => []),
         loadDevelopers().then((all) => all.filter((d) => d.toLowerCase().includes(q)).slice(0, PER_SECTION)),
@@ -68,7 +68,7 @@ export default function SearchSuggestions({ text, context, onSearchText, onPickR
 
   if (typed.length < MIN_CHARS) {
     const items = recent.slice(0, 6);
-    if (!items.length) return <Text style={styles.note}>Type a city, locality, project or developer.</Text>;
+    if (!items.length) return <Text style={styles.note}>Type anything: a place, project, developer or "2 BHK under 80 lakh".</Text>;
     return (
       <View>
         <Text style={styles.section}>Recent searches</Text>

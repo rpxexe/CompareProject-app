@@ -21,6 +21,7 @@ const {
 const { summarise, publicRating } = require("../utils/rating");
 const { cached, cachedByKey } = require("../utils/cache");
 const { z, validate, text } = require("../utils/zod");
+const { buildVocabulary, correctSearch } = require("../utils/searchText");
 
 const RATING_ERROR = "Rating must be a whole number from 1 to 5";
 const reviewSchema = z.object({
@@ -43,11 +44,31 @@ async function withRatings(docs) {
   return items;
 }
 
+// Words in public listing names and places, for correcting misspelt searches.
+const VOCAB_FIELDS = ["title", "name", "projectName", "locality", "city", "developerName", "builderName"];
+const loadSearchVocabulary = cached(10 * 60 * 1000, async () =>
+  buildVocabulary(await Property.find(PUBLIC).select(VOCAB_FIELDS.join(" ")).limit(50000).lean(), VOCAB_FIELDS));
+
+// Typo tolerance: a search that finds nothing is retried once with misspelt words swapped for the
+// closest words in the listings ("andhery" -> "andheri"). Returns the query to use and, when it
+// was corrected, the corrected text so the app can say what it searched for.
+async function resolveSearch(query) {
+  const search = str(query.search, 80);
+  if (!search || (await Property.countDocuments(buildPropertyFilter(query))) > 0) return { query, corrected: null };
+  const fixed = correctSearch(search, await loadSearchVocabulary());
+  const retry = fixed && { ...query, search: fixed };
+  // Only worth showing "Showing results for ..." when the corrected text finds something.
+  if (!retry || !(await Property.countDocuments(buildPropertyFilter(retry)))) return { query, corrected: null };
+  return { query: retry, corrected: fixed };
+}
+
 // GET /api/properties – search / filter / sort / paginate. Everything is done in MongoDB.
 const getProperties = async (req, res) => {
   const { page, limit, skip } = paging(req.query);
-  const filter = buildPropertyFilter(req.query);
-  const sort = str(req.query.sort, 12);
+  const { query, corrected } = await resolveSearch(req.query);
+  const correctedSearch = corrected || undefined;
+  const filter = buildPropertyFilter(query);
+  const sort = str(query.sort, 12);
 
   if (sort === "rating") {
     const ranked = await PropertyRating.find({ count: { $gte: 1 } })
@@ -67,12 +88,13 @@ const getProperties = async (req, res) => {
     return res.json({
       items,
       total: docs.length,
+      correctedSearch,
       page,
       pages: Math.max(1, Math.ceil(docs.length / limit)),
     });
   }
 
-  const title = sort === "relevance" ? titleMatch(req.query) : null;
+  const title = sort === "relevance" ? titleMatch(query) : null;
   if (title) {
     // Title matches first, then the rest; each block keeps the relevance order.
     const first = { $and: [filter, title] };
@@ -97,6 +119,7 @@ const getProperties = async (req, res) => {
     return res.json({
       items: await withRatings(docs),
       total,
+      correctedSearch,
       page,
       pages: Math.max(1, Math.ceil(total / limit)),
     });
@@ -109,6 +132,7 @@ const getProperties = async (req, res) => {
   res.json({
     items: await withRatings(docs),
     total,
+    correctedSearch,
     page,
     pages: Math.max(1, Math.ceil(total / limit)),
   });
@@ -117,7 +141,8 @@ const getProperties = async (req, res) => {
 // GET /api/properties/count – same filters as the list, just the total. Powers the live
 // "Show N results" button while filters are being edited.
 const getPropertyCount = async (req, res) => {
-  res.json({ total: await Property.countDocuments(buildPropertyFilter(req.query)) });
+  const { query, corrected } = await resolveSearch(req.query);
+  res.json({ total: await Property.countDocuments(buildPropertyFilter(query)), correctedSearch: corrected || undefined });
 };
 
 // GET /api/properties/categories – which "New Project" categories actually have data.
