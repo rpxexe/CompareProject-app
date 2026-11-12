@@ -144,7 +144,7 @@ Rebuild with `npm run android` only when **native** things change: new native pa
 npm run device       # re-forwards USB ports and starts Metro with a clean cache
 ```
 
-Open the installed **CompareProjects** app on the phone. If you use Wi-Fi instead of USB, run `npx expo start -c` and make sure the phone and PC are on the same network and Windows Firewall allows port 5000.
+Open the installed **CompareProjects** app on the phone, or press `a` in the Metro terminal to launch it. The script starts Metro with `--dev-client`, so `a` opens the installed app rather than Expo Go. If you use Wi-Fi instead of USB, run `npx expo start -c --dev-client` and make sure the phone and PC are on the same network and Windows Firewall allows port 5000.
 
 ## 5. Signing in while developing
 

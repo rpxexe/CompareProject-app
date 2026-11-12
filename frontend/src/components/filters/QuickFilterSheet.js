@@ -5,6 +5,7 @@ import FilterControl from "./FilterControl";
 import ApplyBar from "./ApplyBar";
 import { useLiveCount } from "../../hooks/useLiveCount";
 import { clear, setValue, toQueryParams } from "../../utils/filterState";
+import { resolveFilter } from "../../utils/filterConfig";
 
 // Compact sheet for a single filter (opened from its quick chip). Edits are staged on a copy of
 // the state and only committed on "Show N results"; closing the sheet discards them.
@@ -20,8 +21,8 @@ export default function QuickFilterSheet({ filterId, state, config, onApply, onC
   }, [visible, filterId]); // eslint-disable-line react-hooks/exhaustive-deps -- reset only when opened
 
   const filter = useMemo(
-    () => config.contexts[state.context]?.filters.find((f) => f.id === shownId) || null,
-    [config, state.context, shownId],
+    () => resolveFilter(config.contexts[state.context]?.filters.find((f) => f.id === shownId), draft.values) || null,
+    [config, state.context, shownId, draft.values],
   );
   const live = useLiveCount(toQueryParams(draft, config), { enabled: visible });
 

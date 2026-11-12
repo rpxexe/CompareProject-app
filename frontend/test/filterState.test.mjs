@@ -210,7 +210,7 @@ test('filter-screen helpers: category counts, clearing a category, clearing ever
   const cat = (id) => projects.find((c) => c.id === id);
   let s = createFilterState(config, 'new_projects', {
     query: { search: 'sea view', city: 'Mumbai', developer: 'Bay Developers', project: 'Bay View' },
-    values: { bhk: ['2', '3'], possession: ['upcoming'], sort: 'newest' },
+    values: { bhk: ['2', '3'], possession: ['new_launch'], sort: 'newest' },
   });
   assert.equal(categoryCount(s, cat('location')), 1);
   assert.equal(categoryCount(s, cat('developer')), 1);
@@ -225,4 +225,17 @@ test('filter-screen helpers: category counts, clearing a category, clearing ever
   s = clearEverything(s, config);
   assert.deepEqual(s.values, { sort: 'newest' }, 'sort survives');
   assert.deepEqual(Object.values(s.query).filter(Boolean), [], 'location and search are cleared too');
+});
+
+test('switching Buy / Lease drops a commercial budget that no longer fits', () => {
+  const C = 'commercial';
+  const s = createFilterState(config, C, { values: { budget: { min: 5000000, max: null } } });
+  const leased = setValue(s, config, 'deal', 'rent');
+  assert.equal(leased.values.deal, 'rent');
+  assert.equal(leased.values.budget, undefined, 'a sale budget is cleared on Lease');
+  const withRent = setValue(leased, config, 'budget', { min: 50000, max: 200000 });
+  assert.deepEqual(toQueryParams(withRent, config), { context: C, deal: 'rent', minPrice: '50000', maxPrice: '200000' });
+  assert.equal(clear(withRent, config, 'deal').values.budget, undefined, 'back to Buy clears the rent budget too');
+  const typed = setValue(withRent, config, 'propertyType', ['office']);
+  assert.deepEqual(typed.values.budget, { min: 50000, max: 200000 }, 'other picks keep the budget');
 });

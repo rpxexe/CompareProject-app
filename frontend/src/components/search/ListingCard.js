@@ -4,7 +4,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import PressableScale from "../PressableScale";
 import HeartButton from "../HeartButton";
-import Marquee from "../Marquee";
 import { Cover, useEnquire } from "../PropertyCard";
 import { useAuth } from "../../context/AuthContext";
 import { useCompare } from "../../context/CompareContext";
@@ -16,9 +15,9 @@ import { Skeleton, SkeletonText } from "../StateViews";
 import Text from "../AppText";
 
 // Compact search-results card: cover photo on the left (status tag, wishlist heart), details on
-// the right - scrolling title, location, price, beds / baths / area, one line of feature chips -
+// the right - title, location, price, beds / baths / area, one line of feature chips -
 // with small "Compare" and "Enquire Now" buttons at the bottom. `tag` is the listing status
-// ("For Sale", "For Rent"); rentals get a "/month" price suffix.
+// ("For Rent", "For Lease", a project badge; none for sale); rentals get a "/month" price suffix.
 function ListingCard({ property: p, index = 0, tag }) {
   const nav = useNavigation();
   const enter = useEntrance(Math.min(index, 6) * 70, 16);
@@ -67,7 +66,7 @@ function ListingCard({ property: p, index = 0, tag }) {
         </View>
 
         <View style={styles.body}>
-          <Marquee style={styles.title}>{name}</Marquee>
+          <Text style={styles.title} numberOfLines={1}>{name}</Text>
           {where ? (
             <View style={styles.whereRow}>
               <Ionicons name="location-outline" size={11} color={brand.inkSoft} />

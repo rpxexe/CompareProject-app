@@ -343,8 +343,7 @@
           "quick": true,
           "options": [
             { "value": "under_construction", "label": "Under construction" },
-            { "value": "new_launch", "label": "New launch" },
-            { "value": "upcoming", "label": "Upcoming" }
+            { "value": "new_launch", "label": "New launch" }
           ]
         },
         "amenities", "area", "rera", "withPhotos", "featured", "sort"
@@ -378,7 +377,17 @@
             { "value": "rent", "label": "Lease" }
           ]
         },
-        { "id": "budget", "quick": true },
+        {
+          "id": "budget",
+          "quick": true,
+          "variants": [
+            {
+              "when": { "filter": "deal", "value": "rent" },
+              "label": "Monthly lease rent",
+              "steps": [10000, 20000, 30000, 50000, 75000, 100000, 150000, 200000, 300000, 500000, 750000, 1000000, 2000000]
+            }
+          ]
+        },
         {
           "id": "propertyType",
           "quick": true,
@@ -396,6 +405,17 @@
         { "id": "possession", "section": "advanced" },
         { "id": "amenities", "base": "commercialAmenities" },
         "floor", "verified", "withPhotos", "rera", "postedSince", "sort"
+      ],
+      "sidebar": [
+        { "id": "location", "label": "City / Location / Project", "short": "Location", "icon": "location-outline", "panel": "location" },
+        { "id": "deal", "label": "Buy or Lease", "short": "Buy / Lease", "icon": "swap-horizontal-outline", "filters": ["deal"] },
+        { "id": "budget", "label": "Budget / Monthly Rent", "short": "Budget", "icon": "wallet-outline", "filters": ["budget"] },
+        { "id": "propertyType", "label": "Property Type", "short": "Type", "icon": "briefcase-outline", "filters": ["propertyType"] },
+        { "id": "area", "label": "Area Range", "short": "Area", "icon": "resize-outline", "filters": ["area"] },
+        { "id": "furnishing", "label": "Furnishing Status", "short": "Furnishing", "icon": "cube-outline", "filters": ["furnishing"] },
+        { "id": "possession", "label": "Possession Status", "short": "Possession", "icon": "key-outline", "filters": ["possession"] },
+        { "id": "amenities", "label": "Amenities", "short": "Amenities", "icon": "sparkles-outline", "filters": ["amenities"] },
+        { "id": "more", "label": "More Filters", "short": "More", "icon": "options-outline", "panel": "more" }
       ]
     },
     "plots": {

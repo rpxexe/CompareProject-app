@@ -20,7 +20,7 @@ import SearchSuggestions from "../components/search/SearchSuggestions";
 import { filterConfig } from "../hooks/useFilterState";
 import { useLiveCount } from "../hooks/useLiveCount";
 import { loadDefaultContext, loadFilters } from "../services/filterStorage";
-import { getContext } from "../utils/filterConfig";
+import { getContext, resolveFilter } from "../utils/filterConfig";
 import {
   INTENT_CONTEXT,
   activeFilterIds,
@@ -38,15 +38,15 @@ import Text, { AppTextInput as TextInput } from "../components/AppText";
 
 const config = filterConfig;
 const DEFAULT_CONTEXT = "buy_residential";
-// The three tabs on top.
-const MAIN_TABS = ["buy_residential", "rent_residential", "new_projects"];
+// The tabs on top.
+const MAIN_TABS = ["buy_residential", "rent_residential", "new_projects", "commercial"];
 const TAB_LABELS = { rent_residential: "Rent" };
-// Only Buy / Rent / Projects are offered here; any other context (commercial, plots - from the
-// onboarding intent, last use or a caller) opens on Buy instead of adding a fourth tab.
+// Only these contexts are offered here; any other (plots - from the onboarding intent, last use
+// or a caller) opens on Buy instead of adding another tab.
 const mainContext = (c) => (MAIN_TABS.includes(c) ? c : DEFAULT_CONTEXT);
 const hasAny = (p) => Object.entries(p || {}).some(([k, v]) => !k.startsWith("_") && k !== "returnTo" && v !== "" && v != null && v !== false);
 
-// The search form: Buy / Rent / Projects tabs, a search field, and a sidebar of filter categories
+// The search form: Buy / Rent / Projects / Commercial tabs, a search field, and a sidebar of filter categories
 // whose controls open in the main area - all driven by the filter config (filters.json `sidebar`).
 // Each tab keeps its own filters while the screen is open; location and search text are shared.
 // Everything is a draft until "Apply Filters" - back discards it.
@@ -106,7 +106,10 @@ export default function SearchFiltersScreen({ navigation, route }) {
   const ctx = getContext(config, draft.context);
   const sidebar = ctx?.sidebar || [];
   const category = sidebar.find((c) => c.id === categoryId) || sidebar[0];
-  const categoryFilters = (category?.filters || []).map((id) => ctx.filters.find((f) => f.id === id)).filter(Boolean);
+  // Resolved against the draft, so e.g. commercial's budget shows monthly rents once "Lease" is picked.
+  const categoryFilters = (category?.filters || [])
+    .map((id) => resolveFilter(ctx.filters.find((f) => f.id === id), draft.values))
+    .filter(Boolean);
   const counts = Object.fromEntries(sidebar.map((c) => [c.id, categoryCount(draft, c)]));
   const selected = activeFilterIds(draft, config).length + ["search", "city", "locality"].filter((k) => draft.query[k]).length;
   // The Clear / Apply footer only appears once something is selected.
@@ -307,6 +310,8 @@ export default function SearchFiltersScreen({ navigation, route }) {
             <View style={{ flex: 1 }} accessibilityLiveRegion="polite">
               <Button
                 small
+                compact
+                icon="search"
                 title={resultsLabel(live)}
                 onPress={() => submit()}
                 disabled={!ready}
@@ -476,7 +481,7 @@ const styles = StyleSheet.create({
   contentInner: { padding: 16, paddingBottom: 28 },
   footer: {
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 8,
     backgroundColor: colors.white,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
@@ -486,13 +491,13 @@ const styles = StyleSheet.create({
   clearAll: {
     flexDirection: "row",
     gap: 6,
-    minHeight: 44,
-    paddingHorizontal: 16,
+    minHeight: 38,
+    paddingHorizontal: 14,
     borderRadius: radius.pill,
     borderWidth: 1.4,
     borderColor: brand.violet,
     alignItems: "center",
     justifyContent: "center",
   },
-  clearAllText: { fontSize: 14, fontWeight: "800", color: brand.violet },
+  clearAllText: { fontSize: 13.5, fontWeight: "800", color: brand.violet },
 });

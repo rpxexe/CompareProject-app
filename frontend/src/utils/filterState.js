@@ -8,7 +8,7 @@
 //   multi_select  [optionValue, ...]  (in option order)
 //   single_select optionValue
 //   toggle        true
-import { getContext } from './filterConfig.js';
+import { getContext, resolveFilter } from './filterConfig.js';
 
 // Free-form search inputs carried alongside the filters. propertyType/developer are the free-text
 // params older screens (Home shortcuts, search history) send; they stay so those links keep working.
@@ -86,8 +86,21 @@ export function createFilterState(config, context, { query = {}, values = {} } =
   return freeze({ context: ctx?.id || '', query: q, values: vals });
 }
 
+// A filter with variants loses its value when another pick switches it to a different variant:
+// a ₹50L purchase budget means nothing once "Lease" turns it into monthly rent.
+function dropSwitched(prev, next, config, keep) {
+  const stale = filtersOf(config, next.context).filter(
+    (f) => f.variants && f.id !== keep && next.values[f.id] !== undefined && resolveFilter(f, prev.values) !== resolveFilter(f, next.values),
+  );
+  if (!stale.length) return next;
+  const values = { ...next.values };
+  stale.forEach((f) => { delete values[f.id]; });
+  return createFilterState(config, next.context, { query: next.query, values });
+}
+
 export function setValue(state, config, id, value) {
-  return createFilterState(config, state.context, { query: state.query, values: { ...state.values, [id]: value } });
+  const next = createFilterState(config, state.context, { query: state.query, values: { ...state.values, [id]: value } });
+  return dropSwitched(state, next, config, id);
 }
 
 export function setQuery(state, config, patch) {
@@ -103,7 +116,7 @@ export function clear(state, config, id) {
   const key = queryKeyOf(id);
   if (key) return setQuery(state, config, { [key]: '' });
   const { [id]: _removed, ...rest } = state.values;
-  return createFilterState(config, state.context, { query: state.query, values: rest });
+  return dropSwitched(state, createFilterState(config, state.context, { query: state.query, values: rest }), config);
 }
 
 // Clears every filter. Location/search text and the sort order are part of *what* you searched,
@@ -136,7 +149,7 @@ export function clearCategory(state, config, category) {
   category.filters.forEach((id) => { delete values[id]; });
   const query = { ...state.query };
   (PANEL_QUERY_KEYS[category.panel] || []).forEach((k) => { query[k] = ''; });
-  return createFilterState(config, state.context, { query, values });
+  return dropSwitched(state, createFilterState(config, state.context, { query, values }), config);
 }
 
 const isSort = (config, state, id) => findFilter(config, state.context, id)?.role === 'sort';

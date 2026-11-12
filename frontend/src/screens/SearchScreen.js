@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, Animated, FlatList, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomSpace } from "../hooks/useBottomSpace";
 import FilterChip from "../components/FilterChip";
@@ -135,7 +136,12 @@ export default function SearchScreen({ navigation, route }) {
   // Every other active filter stays visible (and removable), so nothing narrowing results hides.
   const extraFilters = activeFilterIds(fs, config).filter((id) => id !== budget?.id && id !== ctx?.sort);
   // Listings carry no sale/rent flag; the search's context says which it is.
-  const tagFor = (p) => (fs.context === "rent_residential" ? "For Rent" : fs.context === "new_projects" ? badgeFor(p) || "New Project" : "For Sale");
+  // Commercial covers both: its Buy / Lease pick (`deal`) decides.
+  const tagFor = (p) =>
+    fs.context === "rent_residential" ? "For Rent"
+      : fs.context === "new_projects" ? badgeFor(p) || "New Project"
+        : fs.context === "commercial" && fs.values.deal === "rent" ? "For Lease"
+          : null; // sale listings carry no tag
 
   const apply = (next) => {
     setQuickFor(null);
@@ -218,9 +224,11 @@ export default function SearchScreen({ navigation, route }) {
         </PressableScale>
       </Reveal>
 
-      {/* Location, budget and any other active filter, with Sort pinned on the right. */}
+      {/* Location, budget and any other active filter, with Sort pinned on the right: the chips
+          fade out before a divider so they never run into the Sort button. */}
       <Reveal delay={60} distance={10} style={styles.bar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+        <View style={styles.chipsWrap}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} keyboardShouldPersistTaps="handled">
           <Pill
             icon="location-outline"
             label={place}
@@ -246,21 +254,35 @@ export default function SearchScreen({ navigation, route }) {
             return <Pill key={id} label={value} active onClear={() => filters.clear(id)} accessibilityLabel={`${label}: ${value}`} />;
           })}
         </ScrollView>
+          {sortFilter ? (
+            <LinearGradient
+              pointerEvents="none"
+              colors={["rgba(251, 249, 255, 0)", brand.bg]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.chipsFade}
+            />
+          ) : null}
+        </View>
         {sortFilter ? (
-          <PressableScale
-            onPress={() => setSortSheet(true)}
-            to={0.94}
-            style={styles.sort}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel={`Sort: ${sortLabel}`}
-          >
-            <Text style={styles.sortText} numberOfLines={1}>
-              <Text style={styles.sortMuted}>Sort: </Text>
-              {sortLabel}
-            </Text>
-            <Ionicons name="chevron-down" size={13} color={brand.ink} />
-          </PressableScale>
+          <>
+            <View style={styles.sortDivider} />
+            {/* Its own outlined button; reads "Sort" until a non-default order is picked. */}
+            <PressableScale
+              onPress={() => setSortSheet(true)}
+              to={0.94}
+              style={[styles.sort, sortValue !== sortFilter.default && styles.pillOn]}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={`Sort: ${sortLabel}`}
+            >
+              <Ionicons name="swap-vertical" size={14} color={brand.violet} />
+              <Text style={styles.sortText} numberOfLines={1}>
+                {sortValue !== sortFilter.default ? sortLabel : "Sort"}
+              </Text>
+              <Ionicons name="chevron-down" size={13} color={brand.violet} />
+            </PressableScale>
+          </>
         ) : null}
       </Reveal>
 
@@ -423,8 +445,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   filterDotText: { fontSize: 9, fontWeight: "800", color: colors.white },
-  bar: { flexDirection: "row", alignItems: "center", gap: 8, paddingRight: 16, paddingTop: 6, paddingBottom: 8 },
-  chips: { paddingLeft: 16, paddingRight: 4, gap: 8, alignItems: "center" },
+  bar: { flexDirection: "row", alignItems: "center", paddingRight: 16, paddingTop: 6, paddingBottom: 8 },
+  chipsWrap: { flex: 1, minWidth: 0 },
+  // Right padding lets the last chip scroll fully clear of the fade.
+  chips: { paddingLeft: 16, paddingRight: 20, gap: 8, alignItems: "center" },
+  chipsFade: { position: "absolute", top: 0, bottom: 0, right: 0, width: 24 },
+  sortDivider: { width: 1, height: 22, marginHorizontal: 8, backgroundColor: colors.line },
   pill: {
     flexDirection: "row",
     alignItems: "center",
@@ -439,9 +465,20 @@ const styles = StyleSheet.create({
   },
   pillOn: { backgroundColor: brand.lavender, borderColor: brand.violet },
   pillText: { flexShrink: 1, fontSize: 12.5, fontWeight: "700", color: brand.ink },
-  sort: { flexDirection: "row", alignItems: "center", gap: 3, maxWidth: 150, height: 34 },
-  sortText: { flexShrink: 1, fontSize: 12.5, fontWeight: "800", color: brand.ink },
-  sortMuted: { fontWeight: "600", color: brand.inkSoft },
+  sort: {
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    maxWidth: 150,
+    height: 34,
+    paddingHorizontal: 11,
+    borderRadius: radius.pill,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: brand.lavenderMid,
+  },
+  sortText: { flexShrink: 1, fontSize: 12.5, fontWeight: "800", color: brand.violet },
   suggest: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, paddingHorizontal: 20 },
   topBtnWrap: { position: "absolute", right: 20 },
   topBtn: {
