@@ -12,6 +12,7 @@ import BottomSheet from "../components/BottomSheet";
 import PressableScale from "../components/PressableScale";
 import Reveal from "../components/Reveal";
 import LoanCalculatorSheet from "../components/LoanCalculatorSheet";
+import ImageViewer from "../components/ImageViewer";
 import { smoothLayout } from "../components/compare/CompareTable";
 import { ErrorState, LoadingState } from "../components/StateViews";
 import { useCompare } from "../context/CompareContext";
@@ -71,7 +72,8 @@ const amenityIcon = (name) => AMENITY_ICONS.find(([re]) => re.test(name))?.[1] |
 // (parallax); the active dot slides along, stretching between stops; the counter follows live.
 // `scrollY` (the page scroll) adds a pull-down stretch and a slower, parallax scroll-away.
 // It also slides on by itself every few seconds (paused while the user swipes or the screen is
-// hidden), and a double tap on a photo saves the property with a heart burst.
+// hidden), and a double tap on a photo saves the property with a heart burst. A single tap opens
+// the full-screen viewer on that photo; closing it leaves the slider on the last photo viewed.
 function Gallery({ images, scrollY, onDoubleTap }) {
   const [i, setI] = useState(0);
   const shown = useRef(0);
@@ -81,22 +83,28 @@ function Gallery({ images, scrollY, onDoubleTap }) {
   const focused = useIsFocused();
   const [dragging, setDragging] = useState(false);
   const lastTap = useRef(0);
+  const tapTimer = useRef(null);
   const burst = useRef(new Animated.Value(0)).current;
+  const [viewing, setViewing] = useState(null); // index open in the full-screen viewer
+  useEffect(() => () => clearTimeout(tapTimer.current), []);
 
   // Restarts after every page change, so a manual swipe always gets a full pause before the next.
   useEffect(() => {
-    if (images.length < 2 || !focused || dragging || reduced) return undefined;
+    if (images.length < 2 || !focused || dragging || reduced || viewing != null) return undefined;
     const t = setTimeout(() => {
       const next = (shown.current + 1) % images.length;
       listRef.current?.scrollToOffset({ offset: next * W, animated: true });
     }, AUTO_SLIDE_MS);
     return () => clearTimeout(t);
-  }, [i, images.length, focused, dragging, reduced]);
+  }, [i, images.length, focused, dragging, reduced, viewing]);
 
-  const tap = () => {
+  // A single tap waits out the double-tap window before opening the viewer, so a double tap
+  // still only saves.
+  const tap = (index) => {
     const now = Date.now();
     if (now - lastTap.current < 280) {
       lastTap.current = 0;
+      clearTimeout(tapTimer.current);
       onDoubleTap?.();
       if (!reduced) {
         burst.setValue(0);
@@ -105,7 +113,15 @@ function Gallery({ images, scrollY, onDoubleTap }) {
           Animated.timing(burst, { toValue: 2, duration: 260, delay: 220, useNativeDriver: true }),
         ]).start();
       }
-    } else lastTap.current = now;
+    } else {
+      lastTap.current = now;
+      clearTimeout(tapTimer.current);
+      tapTimer.current = setTimeout(() => setViewing(index), 280);
+    }
+  };
+  const closeViewer = (last) => {
+    setViewing(null);
+    if (last != null && last !== shown.current) listRef.current?.scrollToOffset({ offset: last * W, animated: false });
   };
 
   if (!images.length) return <Cover uri="" style={{ width: W, height: GAL_H }} iconSize={64} />;
@@ -159,7 +175,7 @@ function Gallery({ images, scrollY, onDoubleTap }) {
                 ],
               };
           return (
-            <Pressable onPress={tap} style={styles.page} accessibilityHint="Double tap to save this property">
+            <Pressable onPress={() => tap(index)} style={styles.page} accessibilityRole="imagebutton" accessibilityLabel={`Photo ${index + 1} of ${images.length}`} accessibilityHint="Opens the photos full screen">
               <Animated.View style={drift}>
                 <Cover uri={item} style={{ width: W, height: GAL_H }} iconSize={64} full />
               </Animated.View>
@@ -210,12 +226,60 @@ function Gallery({ images, scrollY, onDoubleTap }) {
           </View>
         </>
       ) : null}
+      <ImageViewer images={images} index={viewing ?? 0} visible={viewing != null} onClose={closeViewer} />
     </Animated.View>
   );
 }
 
 // A detail block that answers touch: it squishes while pressed and springs back, and its icon
 // gives a quick wiggle. Purely tactile unless `onPress` is given.
+// Small copy icon beside a value (the RERA number): copies it, flips to a tick for a moment and
+// confirms with a toast. expo-clipboard is native, so it's loaded on tap: an app build made
+// before it was added then fails just the copy (with a toast), not the whole screen.
+function CopyButton({ value, label }) {
+  const toast = useToast();
+  const [done, setDone] = useState(false);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const copy = async () => {
+    try {
+      const Clipboard = require("expo-clipboard");
+      await Clipboard.setStringAsync(String(value));
+      setDone(true);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => setDone(false), 1500);
+      toast.show(`${label} copied`, "success");
+    } catch {
+      toast.show(`Couldn't copy the ${label}`, "error");
+    }
+  };
+  return (
+    <Pressable
+      onPress={copy}
+      hitSlop={10}
+      style={({ pressed }) => [styles.copyBtn, pressed && { opacity: 0.6 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Copy ${label}`}
+    >
+      <Ionicons name={done ? "checkmark" : "copy-outline"} size={14} color={done ? colors.success : brand.violet} />
+    </Pressable>
+  );
+}
+
+// The RERA number in its own bordered box: the number is selectable text (long-press to select
+// and copy by hand) and the copy button sits inside the box. The box itself is not pressable, so
+// it never competes with text selection. `label` adds a small "RERA" tag in front.
+function ReraBox({ value, label = false, style }) {
+  return (
+    <View style={[styles.reraBox, style]}>
+      <Ionicons name="shield-checkmark-outline" size={14} color={brand.violet} />
+      {label ? <Text style={styles.reraTag}>RERA</Text> : null}
+      <Text style={styles.reraNum} selectable numberOfLines={2}>{value}</Text>
+      <CopyButton value={value} label="RERA number" />
+    </View>
+  );
+}
+
 function Tile({ icon, iconSize = 20, iconBox, style, onPress, accessibilityLabel, children }) {
   const press = useRef(new Animated.Value(0)).current;
   const wiggle = useRef(new Animated.Value(0)).current;
@@ -597,7 +661,9 @@ export default function PropertyDetailsScreen({ navigation, route }) {
                       )}
                       <View style={{ flex: 1 }}>
                         <Text style={styles.devName}>{p.developerName}</Text>
-                        {p.reraNumber ? <Text style={styles.rera}>RERA · {p.reraNumber}</Text> : null}
+                        {p.reraNumber ? (
+                          <ReraBox value={p.reraNumber} label style={{ marginTop: 6 }} />
+                        ) : null}
                       </View>
                     </View>
                   </>
@@ -612,7 +678,11 @@ export default function PropertyDetailsScreen({ navigation, route }) {
                       <View key={k} style={styles.factWrap}>
                         <Tile style={styles.fact} accessibilityLabel={`${k}: ${v}`}>
                           <Text style={styles.fk}>{k}</Text>
-                          <Text style={styles.fv} numberOfLines={2}>{v}</Text>
+                          {k === "RERA" ? (
+                            <ReraBox value={v} style={{ marginTop: 6 }} />
+                          ) : (
+                            <Text style={styles.fv} numberOfLines={2}>{v}</Text>
+                          )}
                         </Tile>
                       </View>
                     ))}
@@ -825,6 +895,23 @@ const styles = StyleSheet.create({
   devPh: { alignItems: "center", justifyContent: "center", backgroundColor: colors.white },
   devName: { fontSize: 15, fontWeight: "800", color: brand.ink },
   rera: { fontSize: 12, color: brand.inkSoft, marginTop: 3 },
+  reraBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    maxWidth: "100%",
+    gap: 6,
+    paddingLeft: 10,
+    paddingRight: 4,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: brand.lavenderMid,
+    backgroundColor: colors.white,
+  },
+  reraTag: { fontSize: 10.5, fontWeight: "800", color: brand.violet, letterSpacing: 0.6 },
+  reraNum: { flexShrink: 1, fontSize: 13, fontWeight: "700", color: brand.ink, letterSpacing: 0.2 },
+  copyBtn: { width: 28, height: 28, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: brand.lavender },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   factWrap: { width: "48%", flexGrow: 1 },
   fact: { borderRadius: 14, padding: 12 },

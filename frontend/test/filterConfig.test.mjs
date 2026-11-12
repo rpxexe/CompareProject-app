@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { parseFilterConfig, parseEntry, getContext, getFilter, contextIds } from '../src/utils/filterConfig.js';
+import { parseFilterConfig, parseEntry, getContext, getFilter, contextIds, resolveFilter } from '../src/utils/filterConfig.js';
 
 const RAW = JSON.parse(readFileSync(new URL('../src/config/filters.json', import.meta.url), 'utf8'));
 
@@ -134,6 +134,7 @@ test('sidebars follow the config, and "more" keeps every other filter reachable'
   assert.deepEqual(ids('buy_residential'), ['location', 'budget', 'propertyType', 'bhk', 'area', 'furnishing', 'status', 'possession', 'amenities', 'more']);
   assert.deepEqual(ids('rent_residential'), ['location', 'budget', 'propertyType', 'bhk', 'area', 'furnishing', 'availableBy', 'amenities', 'more']);
   assert.deepEqual(ids('new_projects'), ['location', 'project', 'developer', 'budget', 'propertyType', 'bhk', 'status', 'amenities', 'more']);
+  assert.deepEqual(ids('commercial'), ['location', 'deal', 'budget', 'propertyType', 'area', 'furnishing', 'possession', 'amenities', 'more']);
   for (const id of contextIds(c)) {
     const ctx = getContext(c, id);
     const listed = ctx.sidebar.flatMap((s) => s.filters);
@@ -155,4 +156,37 @@ test('bad sidebar entries are dropped and reported', () => {
   });
   assert.deepEqual(getContext(c, 'a').sidebar.map((s) => [s.id, s.filters]), [['one', ['x']]], 'empty "more" is dropped');
   assert.equal(c.errors.length, 3);
+});
+
+test('commercial budget switches to monthly lease rents when "Lease" is picked', () => {
+  const c = parseFilterConfig(RAW);
+  const budget = getFilter(c, 'commercial', 'budget');
+  assert.equal(resolveFilter(budget, {}), budget, 'default deal (Buy) keeps the sale budget');
+  assert.equal(resolveFilter(budget, { deal: 'sale' }), budget);
+  const lease = resolveFilter(budget, { deal: 'rent' });
+  assert.equal(lease.label, 'Monthly lease rent');
+  assert.ok(lease.steps[0] < budget.steps[0], 'lease steps are monthly amounts');
+  assert.deepEqual(lease.queryKeys, budget.queryKeys, 'same query keys, so the API contract holds');
+  assert.equal(lease.quick, true, 'inherits the rest of the entry');
+  const buy = getFilter(c, 'buy_residential', 'budget');
+  assert.equal(resolveFilter(buy, { deal: 'rent' }), buy, 'filters without variants are untouched');
+});
+
+test('bad variants are dropped and reported, keeping the filter', () => {
+  const c = parseFilterConfig({
+    definitions: {},
+    contexts: { a: { label: 'A', filters: [
+      { id: 'mode', label: 'Mode', type: 'single_select', queryKey: 'mode', default: 'x', options: [{ value: 'x', label: 'X' }, { value: 'y', label: 'Y' }] },
+      { id: 'price', label: 'Price', type: 'range', queryKeys: ['lo', 'hi'], steps: [1, 2], variants: [
+        { when: { filter: 'mode', value: 'y' }, label: 'Cheap', steps: [0.5, 1] },
+        { when: { filter: 'nope', value: 'y' }, label: 'Bad' },
+        { when: { filter: 'mode', value: 'z' }, label: 'Bad' },
+        { when: { filter: 'mode', value: 'y' }, queryKeys: ['a', 'b'] },
+      ] },
+    ] } },
+  });
+  assert.equal(c.errors.length, 3, c.errors.join(' | '));
+  const price = getFilter(c, 'a', 'price');
+  assert.equal(price.variants.length, 1);
+  assert.equal(resolveFilter(price, { mode: 'y' }).label, 'Cheap');
 });

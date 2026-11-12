@@ -16,6 +16,7 @@ export default function Button({
   iconRight,
   style,
   small,
+  compact, // shorter than `small`, for tight footers (filter screen's Clear / Apply row)
   accessibilityLabel,
   accessibilityHint,
 }) {
@@ -29,12 +30,12 @@ export default function Button({
           {icon ? (
             <Ionicons
               name={icon}
-              size={18}
+              size={compact ? 16 : 18}
               color={color}
-              style={{ marginRight: 8 }}
+              style={{ marginRight: compact ? 6 : 8 }}
             />
           ) : null}
-          <Text style={[styles.text, { color }, small && { fontSize: 14 }]}>
+          <Text style={[styles.text, { color }, small && { fontSize: 14 }, compact && { fontSize: 13.5 }]}>
             {title}
           </Text>
           {iconRight ? (
@@ -64,12 +65,12 @@ export default function Button({
           colors={gradients.cta}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.base, small && styles.small, styles.ctaShadow]}
+          style={[styles.base, small && styles.small, compact && styles.compact, styles.ctaShadow]}
         >
           {inner(colors.white)}
         </LinearGradient>
       ) : variant === "glass" ? (
-        <View style={[styles.base, small && styles.small, styles.glassBtn]}>
+        <View style={[styles.base, small && styles.small, compact && styles.compact, styles.glassBtn]}>
           <LinearGradient
             colors={["rgba(255,255,255,0.95)", "rgba(250,247,255,0.75)"]}
             start={{ x: 0, y: 0 }}
@@ -85,7 +86,7 @@ export default function Button({
           {inner(colors.ink)}
         </View>
       ) : variant === "glassDark" ? (
-        <View style={[styles.base, small && styles.small, styles.glassDarkBtn]}>
+        <View style={[styles.base, small && styles.small, compact && styles.compact, styles.glassDarkBtn]}>
           <LinearGradient
             colors={["rgba(42, 16, 96, 0.85)", "rgba(20, 10, 46, 0.82)"]}
             start={{ x: 0, y: 0 }}
@@ -104,7 +105,7 @@ export default function Button({
         <View
           style={[
             styles.base,
-            small && styles.small,
+            small && styles.small, compact && styles.compact,
             { backgroundColor: colors.ink },
           ]}
         >
@@ -114,7 +115,7 @@ export default function Button({
         <View
           style={[
             styles.base,
-            small && styles.small,
+            small && styles.small, compact && styles.compact,
             {
               backgroundColor: "rgba(255, 255, 255, 0.65)",
               borderWidth: 1.5,
@@ -139,6 +140,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   small: { minHeight: 44, paddingHorizontal: 18 },
+  compact: { minHeight: 38, paddingHorizontal: 16 },
   ctaShadow: {
     shadowColor: brand.violet,
     shadowOpacity: 0.32,

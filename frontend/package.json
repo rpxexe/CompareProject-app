@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "expo start",
-    "device": "node scripts/adb-reverse.js && expo start -c",
+    "device": "node scripts/adb-reverse.js && expo start -c --dev-client",
     "android": "node scripts/adb-reverse.js && expo run:android",
     "doctor": "npx expo-doctor",
     "test": "node --test \"test/*.test.mjs\"",
@@ -26,6 +26,7 @@
     "axios": "^1.12.2",
     "expo": "^54.0.12",
     "expo-blur": "~15.0.8",
+    "expo-clipboard": "~8.0.8",
     "expo-document-picker": "~14.0.8",
     "expo-font": "~14.0.8",
     "expo-image-picker": "~17.0.11",

@@ -10,9 +10,13 @@
 // Entry: { label, type: range|single_select|multi_select|toggle, queryKey | queryKeys,
 //          options?: [{ value, label, values?, aliases?, icon?, group? }], default?, quick?, hidden?, role?,
 //          display?: how it is drawn (see DISPLAYS), section?: main|advanced, collapsedCount?,
-//          groups?: [{ id, label, icon? }] - option tabs (e.g. Residential / Commercial) }
+//          groups?: [{ id, label, icon? }] - option tabs (e.g. Residential / Commercial),
+//          variants?: [{ when: { filter, value }, ...overrides }] }
 //          Groups are kept only when every option names one of them, so a context that overrides
 //          the options without groups simply shows them untabbed.
+//          A variant swaps in its overrides (label, steps...) while another single-select filter in
+//          the same context holds `value` - e.g. commercial's budget turns into monthly lease rent
+//          when "Lease" is picked. It must keep the filter's type and query keys (see resolveFilter).
 // Invalid entries are dropped (and reported in `errors`) so a bad remote config can't crash the app.
 
 export const FILTER_TYPES = ['range', 'single_select', 'multi_select', 'toggle'];
@@ -179,6 +183,37 @@ function parseSidebar(ctxId, raw, filters, errors) {
   return out;
 }
 
+const sameKeys = (a, b) => a.queryKeys.join() === b.queryKeys.join() && a.unit?.queryKey === b.unit?.queryKey;
+
+// Parses `raw.variants` for an already parsed entry, once every filter in the context is known.
+// Invalid variants are dropped (and reported); the entry itself stays.
+function parseVariants(ctxId, entry, raw, filters, errors) {
+  if (!Array.isArray(raw?.variants)) return null;
+  const out = [];
+  raw.variants.forEach((v, i) => {
+    const where = `${ctxId}.${entry.id}.variants[${i}]`;
+    try {
+      const { when, ...overrides } = v || {};
+      const on = filters.find((f) => f.id === when?.filter);
+      if (!on || on.id === entry.id || on.type !== 'single_select') throw new Error('when.filter must name another single-select filter');
+      if (!on.options.some((o) => o.value === when.value)) throw new Error(`"${when.value}" is not an option of ${on.id}`);
+      const { variants: _v, ...base } = raw;
+      const alt = parseEntry(entry.id, { ...base, ...overrides });
+      if (alt.type !== entry.type || !sameKeys(alt, entry)) throw new Error('a variant must keep the type and query keys');
+      out.push({ filter: on.id, value: when.value, fallback: on.default, entry: alt });
+    } catch (e) {
+      errors.push(`${where}: ${e.message}`);
+    }
+  });
+  return out.length ? out : null;
+}
+
+// The filter as it applies to the current picks: its matching variant, or itself.
+export function resolveFilter(filter, values = {}) {
+  const v = filter?.variants?.find((x) => (values[x.filter] ?? x.fallback) === x.value);
+  return v ? v.entry : filter;
+}
+
 function resolve(ref, definitions) {
   if (isStr(ref)) return { id: ref, raw: definitions[ref] };
   if (!ref || typeof ref !== 'object') return { id: '', raw: null };
@@ -196,6 +231,7 @@ export function parseFilterConfig(raw) {
 
   for (const [ctxId, ctx] of Object.entries(rawContexts)) {
     const filters = [];
+    const raws = new Map();
     const ids = new Set();
     const keys = new Set();
     for (const ref of Array.isArray(ctx?.filters) ? ctx.filters : []) {
@@ -209,9 +245,14 @@ export function parseFilterConfig(raw) {
         ids.add(entry.id);
         allKeys.forEach((k) => keys.add(k));
         filters.push(entry);
+        raws.set(entry, entryRaw);
       } catch (e) {
         errors.push(`${ctxId}.${id || '?'}: ${e.message}`);
       }
+    }
+    for (const entry of filters) {
+      const variants = parseVariants(ctxId, entry, raws.get(entry), filters, errors);
+      if (variants) entry.variants = variants;
     }
     if (!filters.length) {
       errors.push(`${ctxId}: no valid filters`);
