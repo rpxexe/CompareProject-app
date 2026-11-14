@@ -53,7 +53,8 @@ const FIELDS = {
 };
 
 function bhkCondition(raw) {
-  const vals = values(raw, { comma: true }).filter((v) => /^\d{1,2}\+?$/.test(v));
+  // `rk` (the "1 RK" option) matches listings indexed as bhk 0.
+  const vals = values(raw, { comma: true }).map((v) => (/^rk$/i.test(v) ? "0" : v)).filter((v) => /^\d{1,2}\+?$/.test(v));
   if (!vals.length) return null;
   const or = vals.map((v) => (v.endsWith("+") ? { [ff("bhk")]: { $gte: parseInt(v, 10) } } : { [ff("bhk")]: Number(v) }));
   return or.length === 1 ? or[0] : { $or: or };
@@ -231,7 +232,7 @@ const getProperties = async (req, res) => {
 
 function structured(p, { withPlace = true } = {}) {
   const conds = [PUBLIC];
-  if (p.bhk) conds.push({ [ff("bhk")]: p.bhk });
+  if (p.bhk) conds.push({ [ff("bhk")]: p.bhk === "rk" ? 0 : p.bhk });
   const price = range(ff("price"), p.minPrice ?? null, p.maxPrice ?? null);
   if (price) conds.push(price);
   if (p.rera) conds.push({ [ff("rera")]: true });

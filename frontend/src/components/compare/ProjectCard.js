@@ -7,6 +7,7 @@ import { isReducedMotion } from "../../hooks/useReducedMotion";
 import { brand, colors, radius, shadow } from "../../theme";
 import Text from "../AppText";
 import { INSIGHT_STYLE } from "./insightStyle";
+import { bhkLabel, listingName } from "../../utils/format";
 
 // Header card for one compared project: numbered, removable, with its strongest badge.
 // Springs in on mount (staggered by `index`) and shrinks away before `onRemove` fires.
@@ -32,7 +33,7 @@ export default function ProjectCard({ property: p, index, width, badge, onOpen, 
   const shown = Animated.multiply(enter, leave);
   const photos = p.galleryImages?.length || (p.image ? 1 : 0);
   const look = badge ? INSIGHT_STYLE[badge.key] : null;
-  const facts = [p.bhk && `${p.bhk} BHK`, p.area].filter(Boolean);
+  const facts = [bhkLabel(p.bhk), p.area].filter(Boolean);
 
   return (
     <Animated.View
@@ -45,13 +46,13 @@ export default function ProjectCard({ property: p, index, width, badge, onOpen, 
         ],
       }}
     >
-      <PressableScale onPress={onOpen} to={0.96} style={styles.card} accessibilityRole="button" accessibilityLabel={`Open ${p.title}`}>
+      <PressableScale onPress={onOpen} to={0.96} style={styles.card} accessibilityRole="button" accessibilityLabel={`Open ${listingName(p)}`}>
         <View>
           <Cover uri={p.image} style={styles.img} iconSize={26} />
           <Animated.View style={[styles.num, { transform: [{ scale: pop }] }]}>
             <Text style={styles.numText}>{index + 1}</Text>
           </Animated.View>
-          <PressableScale onPress={remove} to={0.85} hitSlop={8} style={styles.x} accessibilityLabel={`Remove ${p.title}`}>
+          <PressableScale onPress={remove} to={0.85} hitSlop={8} style={styles.x} accessibilityLabel={`Remove ${listingName(p)}`}>
             <Ionicons name="close" size={14} color={colors.ink} />
           </PressableScale>
           {photos > 0 ? (
@@ -68,7 +69,7 @@ export default function ProjectCard({ property: p, index, width, badge, onOpen, 
           ) : null}
         </View>
         <View style={styles.body}>
-          <Text style={styles.title} numberOfLines={2}>{p.title}</Text>
+          <Text style={styles.title} numberOfLines={2}>{listingName(p)}</Text>
           {p.locality || p.city ? (
             <View style={styles.locRow}>
               <Ionicons name="location-outline" size={11} color={colors.muted} />
@@ -108,7 +109,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(124, 44, 245, 0.08)",
+    borderColor: "rgba(36, 87, 255, 0.08)",
     ...shadow.card,
   },
   img: { width: "100%", height: 96 },
@@ -147,7 +148,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 6,
-    backgroundColor: "rgba(15, 8, 36, 0.55)",
+    backgroundColor: "rgba(8, 15, 36, 0.55)",
   },
   photosText: { color: colors.white, fontSize: 9.5, fontWeight: "700" },
   badge: {
@@ -177,8 +178,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1.5,
     borderStyle: "dashed",
-    borderColor: "rgba(124, 44, 245, 0.35)",
-    backgroundColor: "rgba(241, 235, 255, 0.55)",
+    borderColor: "rgba(36, 87, 255, 0.35)",
+    backgroundColor: "rgba(248, 251, 252, 0.55)",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,

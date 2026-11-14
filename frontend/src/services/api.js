@@ -189,12 +189,17 @@ export const api = {
   notifications: () => call(client.get("/notifications")),
   markNotificationRead: (id) => call(client.patch(`/notifications/${id}/read`)),
   markAllNotificationsRead: () => call(client.patch("/notifications/read-all")),
+  // Lists come one row per project (a project's units - each BHK / size - share one card, with
+  // its starting price and BHK options); pass `group: undefined` for one row per unit.
   // `signal` (AbortController) lets the caller cancel a superseded search.
   properties: (params, { signal } = {}) =>
-    call(client.get("/properties", { params: clean(params), signal })),
+    call(client.get("/properties", { params: clean({ group: "project", ...params }), signal })),
+  // Counts what the list shows: projects.
   propertyCount: (params, { signal } = {}) =>
-    call(client.get("/properties/count", { params: clean(params), signal })),
+    call(client.get("/properties/count", { params: clean({ group: "project", ...params }), signal })),
   property: (id) => call(client.get(`/properties/${id}`)),
+  // Every unit of this listing's project (BHK, size, price), for the details screen's picker.
+  projectUnits: (id) => call(client.get(`/properties/${id}/units`)),
   categories: () => call(client.get("/properties/categories")),
   facets: () => call(client.get("/properties/facets")),
   insights: (city) => call(client.get("/properties/insights", { params: clean({ city }) })),

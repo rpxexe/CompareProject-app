@@ -36,11 +36,19 @@ export default function FilterControl({ filter, value, onChange, title = true, w
 }
 
 // Select-type filters. With `filter.groups` the options sit behind tabs (Residential /
-// Commercial); picks in every tab stay selected, and each tab counts its own.
+// Commercial) and picks come from one group at a time: choosing an option in another group clears
+// the other group's picks (a Shop after a Flat leaves just the Shop). Several picks within one
+// group combine as usual. Each tab counts its own picks.
 function Choices({ filter, value, onChange, title, wrap }) {
   const multi = filter.type === "multi_select";
   const selected = multi ? value || [] : [value ?? filter.default];
-  const pick = (v) => onChange(multi ? (selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]) : v);
+  const groupOf = (v) => filter.options.find((o) => o.value === v)?.group;
+  const pick = (v) => {
+    if (!multi) return onChange(v);
+    if (selected.includes(v)) return onChange(selected.filter((x) => x !== v));
+    const sameGroup = filter.groups ? selected.filter((x) => groupOf(x) === groupOf(v)) : selected;
+    return onChange([...sameGroup, v]);
+  };
   // Opens on the tab holding the first selection.
   const [tab, setTab] = useState(() => filter.options.find((o) => selected.includes(o.value))?.group || filter.groups?.[0].id);
   const shown = filter.groups ? { ...filter, options: filter.options.filter((o) => o.group === tab) } : filter;
@@ -142,7 +150,8 @@ function GroupTabs({ filter, selected, value, onChange }) {
   );
 }
 
-const optionLabel = (filter, o) => (o.value && filter.unitLabel ? `${o.label} ${filter.unitLabel}` : o.label);
+// The unit ("BHK") follows plain numbers only; a label that names its own unit ("1 RK") stays as is.
+const optionLabel = (filter, o) => (o.value && filter.unitLabel && !/[a-z]/i.test(o.label) ? `${o.label} ${filter.unitLabel}` : o.label);
 const a11yFor = (filter, o, on, multi) => ({
   accessibilityRole: multi ? "checkbox" : "radio",
   accessibilityState: { checked: on },
@@ -392,7 +401,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap" },
   check: { width: "50%", minHeight: 44, flexDirection: "row", alignItems: "center", gap: 12, paddingRight: 8 },
   checkFull: { width: "100%" },
-  box: { width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, borderColor: "#C9C2DB", alignItems: "center", justifyContent: "center" },
+  box: { width: 22, height: 22, borderRadius: 5, borderWidth: 1.5, borderColor: "#C2CCDB", alignItems: "center", justifyContent: "center" },
   boxOn: { backgroundColor: brand.violet, borderColor: brand.violet },
   checkText: { fontSize: 14.5, color: colors.text, flex: 1 },
   more: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start" },

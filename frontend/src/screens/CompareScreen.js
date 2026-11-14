@@ -43,6 +43,8 @@ export default function CompareScreen({ navigation }) {
     [],
   );
   const [tab, setTab] = useState("key");
+  // Tabs already opened stay mounted (hidden) so switching back is instant.
+  const [opened, setOpened] = useState({ key: true });
   const [allAmenities, setAllAmenities] = useState(false);
   const fade = useRef(new Animated.Value(1)).current;
 
@@ -85,11 +87,15 @@ export default function CompareScreen({ navigation }) {
       fade.setValue(1);
     });
   };
+  // Instant switch: tables stay mounted once opened and are just shown / hidden. No transition -
+  // a LayoutAnimation here animated every view on the screen and made switching lag badly, and a
+  // fade made the table flash on every switch.
   const switchTab = (t) => {
     if (t === tab) return;
-    smoothLayout();
+    setOpened((o) => (o[t] ? o : { ...o, [t]: true }));
     setTab(t);
   };
+  const shownIf = (t) => (tab === t ? null : styles.hidden);
 
   const badgeFor = (i) =>
     tips.find((t) => t.index === i) || (items[i].featured ? { key: "featured", badge: "Featured" } : null);
@@ -166,15 +172,19 @@ export default function CompareScreen({ navigation }) {
           <CompareTabs tabs={TABS} value={tab} onChange={switchTab} />
 
           <View style={{ marginTop: 10 }}>
-            {tab === "key" ? (
-              <Section key="key" title="Key Comparison" icon="bar-chart-outline">
+            {opened.key ? (
+              <View style={shownIf("key")}>
+              <Section title="Key Comparison" icon="bar-chart-outline">
                 <Grid items={items} labelW={labelW} colW={colW} fits={fits}>
                   {renderRows(keyRows)}
                   <DetailsRow items={items} labelW={labelW} colW={colW} pick={pick} onOpen={open} />
                 </Grid>
               </Section>
-            ) : tab === "amenities" ? (
-              <Section key="amenities" title="Amenities" icon="star-outline">
+              </View>
+            ) : null}
+            {opened.amenities ? (
+              <View style={shownIf("amenities")}>
+              <Section title="Amenities" icon="star-outline">
                 {amenities.rows.length ? (
                   <Grid items={items} labelW={labelW} colW={colW} fits={fits}>
                     <Row index={0} label="Total listed" icon="list-outline" labelW={labelW}>
@@ -189,7 +199,7 @@ export default function CompareScreen({ navigation }) {
                             <Ionicons
                               name={has ? "checkmark-circle" : "close-circle-outline"}
                               size={19}
-                              color={has ? colors.success : "#C9C3D3"}
+                              color={has ? colors.success : "#C3C8D3"}
                               accessibilityLabel={has ? "Available" : "Not listed"}
                             />
                           </Cell>
@@ -202,10 +212,7 @@ export default function CompareScreen({ navigation }) {
                 )}
                 {amenities.rows.length > AMENITY_PREVIEW ? (
                   <PressableScale
-                    onPress={() => {
-                      smoothLayout();
-                      setAllAmenities((v) => !v);
-                    }}
+                    onPress={() => setAllAmenities((v) => !v)}
                     to={0.96}
                     style={styles.more}
                   >
@@ -216,8 +223,11 @@ export default function CompareScreen({ navigation }) {
                   </PressableScale>
                 ) : null}
               </Section>
-            ) : (
-              <Section key="location" title="Location & Connectivity" icon="location-outline">
+              </View>
+            ) : null}
+            {opened.location ? (
+              <View style={shownIf("location")}>
+              <Section title="Location & Connectivity" icon="location-outline">
                 {locationRows.length ? (
                   <Grid items={items} labelW={labelW} colW={colW} fits={fits}>
                     {renderRows(locationRows)}
@@ -226,7 +236,8 @@ export default function CompareScreen({ navigation }) {
                   <Text style={styles.none}>No location details are listed for these projects.</Text>
                 )}
               </Section>
-            )}
+              </View>
+            ) : null}
           </View>
 
           <WhyChoose insights={tips} items={items} tileW={Math.max(cardW + 30, 150)} onOpen={open} />
@@ -277,6 +288,7 @@ const styles = StyleSheet.create({
   mapBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
   mapText: { fontSize: 12, fontWeight: "800", color: brand.violet },
   none: { padding: 16, fontSize: 13, color: colors.muted },
+  hidden: { display: "none" },
   more: {
     flexDirection: "row",
     alignItems: "center",

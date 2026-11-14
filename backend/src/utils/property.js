@@ -82,6 +82,29 @@ function textOf(v) {
   return firstString(v);
 }
 
+// BHK of a listing as the app uses it: "2", "3", ... or "1RK" (one room + kitchen); "" if unknown.
+function bhkOf(p) {
+  const bhk = textOf(p.bhk) || textOf(p.bedrooms) || textOf(p.bedroom);
+  // "1 RK" / "1rk" -> "1RK"; otherwise "2 BHK" -> "2".
+  return /rk/i.test(bhk) ? '1RK' : bhk.replace(/\s*bhk\s*$/i, '');
+}
+
+// The project a listing belongs to. Projects are imported once per unit (each BHK / size / price
+// is its own record) and share a `projectKey` slug (developer + project + locality). A listing
+// without one is its own project.
+function projectKeyOf(p) {
+  const key = typeof p.projectKey === 'string' ? p.projectKey.trim() : '';
+  return key || String(p._id);
+}
+
+// Lowest asking price and BHK of one unit, by the same rules as normalizeProperty, without the
+// full normalisation (used to summarise every unit of a project).
+function unitBasics(p) {
+  const max = numericValue(p.price?.max ?? p.price ?? p.amount ?? p.maxPrice);
+  const min = numericValue(p.price?.min ?? p.minPrice);
+  return { price: min && max && min < max ? min : max || min || null, bhk: bhkOf(p) };
+}
+
 function normalizeProperty(doc) {
   const p = doc && doc.toObject ? doc.toObject() : doc || {};
   const loc = p.location && typeof p.location === 'object' ? p.location : {};
@@ -95,16 +118,19 @@ function normalizeProperty(doc) {
   const priceMin = numericValue(priceMinRaw);
   const city = firstString(p.city, loc.city, addr.city);
   const locality = firstString(p.locality, loc.locality, addr.locality, p.areaName);
-  const bhk = textOf(p.bhk) || textOf(p.bedrooms) || textOf(p.bedroom);
   const type = firstString(p.propertyType, p.propertyGroup, p.type);
-  const bhkNum = bhk.replace(/\s*bhk\s*$/i, '');
-  const title = firstString(p.title, p.name, p.projectName) || [bhkNum && `${bhkNum} BHK`, type, (locality || city) && `in ${locality || city}`].filter(Boolean).join(' ') || 'Untitled property';
+  const bhkNum = bhkOf(p);
+  const title = firstString(p.title, p.name, p.projectName) || [bhkNum && (bhkNum === '1RK' ? '1 RK' : `${bhkNum} BHK`), type, (locality || city) && `in ${locality || city}`].filter(Boolean).join(' ') || 'Untitled property';
   const priceText = formatPrice(priceRaw);
   const priceMinText = priceMin && priceValue && priceMin < priceValue ? formatPrice(priceMin) : '';
 
   return {
     id: String(p._id),
     title,
+    // The project/building the listing belongs to (e.g. "Lodha Altus"); the app shows this as the
+    // listing's name. Numbers in the data (e.g. 209) come back as text.
+    projectName: firstString(p.projectName),
+    projectKey: projectKeyOf(p),
     city,
     locality,
     address: firstString(typeof p.address === 'string' ? p.address : '', p.fullAddress, addr.line1, addr.street),
@@ -151,4 +177,4 @@ function normalizeProperty(doc) {
   };
 }
 
-module.exports = { normalizeProperty, formatPrice, numericValue, firstString, httpsUrlOf };
+module.exports = { normalizeProperty, formatPrice, numericValue, firstString, httpsUrlOf, bhkOf, projectKeyOf, unitBasics };

@@ -1,9 +1,12 @@
 const { escapeRegex, str } = require('./validate');
-const { parseSearch, wordRegex } = require('./searchText');
+const { parseSearch, wordRegex, placeRegex } = require('./searchText');
 const { FIELD, AMENITY_KEYS, TYPE_KEYS, TYPE_SEGMENTS, FACINGS, AVAILABILITY_KEYS, possessionKey, furnishingKey, toSqft } = require('./filterFields');
 
 const STATUS_FIELDS = ['possessionStatus', 'possession', 'status'];
 const TYPE_FIELDS = ['propertyType', 'propertyGroup', 'type'];
+// Type keys that also match listings filed under a combined type indexed as something else
+// (filterFields.typeOf files "Shop/Showroom" as a shop).
+const TYPE_ALSO_MATCHES = { showroom: /showroom/i };
 // Where each typed word is looked for. A listing matches when every word is found in one of them.
 const SEARCH_FIELDS = [
   'title', 'name', 'projectName', 'city', 'locality', 'address', 'state', 'pincode', 'location.city', 'location.locality',
@@ -105,7 +108,12 @@ function expandSearch(input) {
   return { q, words };
 }
 
-function buildPropertyFilter(input = {}, { includeHidden = false, now = Date.now() } = {}) {
+// The free-text words of a query (after filters named in the text are taken out).
+const searchWords = (input) => expandSearch(input).words;
+
+// `textIds`: listings Atlas Search matched for the query's words (utils/atlasSearch). When given,
+// they replace the regex word matching; filters apply as usual either way.
+function buildPropertyFilter(input = {}, { includeHidden = false, now = Date.now(), textIds = null } = {}) {
   const and = [];
   const push = (c) => { if (c) and.push(c); };
   if (!includeHidden) and.push(PUBLIC);
@@ -113,11 +121,13 @@ function buildPropertyFilter(input = {}, { includeHidden = false, now = Date.now
   const { q, words, none } = expandSearch(input);
   if (none) and.push({ _id: { $exists: false } });
   // Every word somewhere in the listing, in any order: "rustomjee borivali", "sea view worli".
-  for (const w of words) and.push(anyField(SEARCH_FIELDS, wordRegex(w)));
+  if (textIds && words.length) and.push({ _id: { $in: textIds } });
+  else for (const w of words) and.push(anyField(SEARCH_FIELDS, wordRegex(w)));
   const city = str(q.city, 60);
-  if (city) and.push({ city: re(city) });
+  // Place filters accept other names of the place (GPS "Bengaluru" finds "Bangalore").
+  if (city) and.push({ city: placeRegex(city) });
   const locality = str(q.locality, 60);
-  if (locality) and.push({ locality: re(locality) });
+  if (locality) and.push({ locality: placeRegex(locality) });
   const dev = str(q.developer, 60);
   if (dev) and.push(anyField(['developerName', 'builderName'], re(dev)));
   // Project name only (the general search also matches city, developer, type...).
@@ -139,9 +149,18 @@ function buildPropertyFilter(input = {}, { includeHidden = false, now = Date.now
   // Free-text type (Home shortcuts, older links) vs canonical keys from the filter screen.
   const type = str(q.propertyType, 60);
   if (type) and.push(anyField(TYPE_FIELDS, re(type)));
-  if (types.length) and.push({ [ff('type')]: { $in: types } });
+  if (types.length) {
+    // A listing has one indexed type, so combined ones ("Shop/Showroom") are indexed under the
+    // first (shop). Asking for the other must still find them: every showroom in the data is a
+    // "Shop/Showroom", so without this a showroom search finds nothing at all.
+    const alsoRaw = types.map((t) => TYPE_ALSO_MATCHES[t]).filter(Boolean);
+    const byKey = { [ff('type')]: { $in: types } };
+    and.push(alsoRaw.length ? { $or: [byKey, ...alsoRaw.map((r) => anyField(TYPE_FIELDS, r))] } : byKey);
+  }
 
-  push(countCondition(ff('bhk'), q.bhk));
+  // The "1 RK" filter option is sent as `rk`; RK listings are indexed as bhk 0.
+  const rkToZero = (v) => (typeof v === 'string' ? v.replace(/\brk\b/gi, '0') : v);
+  push(countCondition(ff('bhk'), Array.isArray(q.bhk) ? q.bhk.map(rkToZero) : rkToZero(q.bhk)));
   push(countCondition(ff('bathrooms'), q.bathrooms));
   push(range(ff('price'), num(q.minPrice), num(q.maxPrice)));
 
@@ -218,4 +237,4 @@ function titleMatch(q) {
   return words.length ? { $and: words.map((w) => anyField(TITLE_FIELDS, wordRegex(w))) } : null;
 }
 
-module.exports = { buildPropertyFilter, buildSort, titleMatch, SECTIONS, PUBLIC, HIDDEN_STATUSES, isPublic, CONTEXTS };
+module.exports = { buildPropertyFilter, searchWords, buildSort, titleMatch, SECTIONS, PUBLIC, HIDDEN_STATUSES, isPublic, CONTEXTS };

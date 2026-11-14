@@ -91,7 +91,7 @@ export default function LoginRequiredDialog({ navigationRef }) {
         >
           {/* Frosted Glass Layers */}
           <LinearGradient
-            colors={["rgba(255, 255, 255, 0.96)", "rgba(246, 242, 255, 0.9)"]}
+            colors={["rgba(255, 255, 255, 0.96)", "rgba(250, 252, 253, 0.9)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0.8, y: 1 }}
             style={[StyleSheet.absoluteFill, { borderRadius: radius.xl }]}
@@ -118,7 +118,7 @@ export default function LoginRequiredDialog({ navigationRef }) {
 
           {/* Luxury Badge Icon */}
           <LinearGradient
-            colors={["#C9A2FF", colors.gold, "#7C3AED"]}
+            colors={["#A2CAFF", colors.gold, "#2457FF"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.iconCircle, glow]}
@@ -133,7 +133,7 @@ export default function LoginRequiredDialog({ navigationRef }) {
           {/* Trust points in frosted glass box */}
           <View style={styles.perks}>
             <LinearGradient
-              colors={["rgba(246, 242, 255, 0.8)", "rgba(235, 226, 255, 0.6)"]}
+              colors={["rgba(250, 252, 253, 0.8)", "rgba(245, 249, 251, 0.6)"]}
               style={[StyleSheet.absoluteFill, { borderRadius: radius.md }]}
               pointerEvents="none"
             />
@@ -186,7 +186,7 @@ const CARD_W = Math.min(width - 44, 380);
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(11, 4, 32, 0.68)",
+    backgroundColor: "rgba(4, 11, 32, 0.68)",
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "rgba(235, 226, 255, 0.85)",
+    backgroundColor: "rgba(245, 249, 251, 0.85)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.9)",
     alignItems: "center",
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   },
   perks: {
     width: "100%",
-    backgroundColor: "rgba(246, 242, 255, 0.7)",
+    backgroundColor: "rgba(250, 252, 253, 0.7)",
     borderRadius: radius.md,
     padding: 12,
     marginBottom: 20,

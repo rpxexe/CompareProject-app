@@ -1,5 +1,6 @@
 // Pure helpers for the guided Post Property flow (no React / no network), so they can be unit tested.
 import { z } from "zod";
+import { bhkLabel } from "./format";
 
 // Labels shown to the user -> values the existing backend understands.
 // "Sell" is stored as listingType "sale" because that is what POST /post-property accepts.
@@ -49,7 +50,7 @@ const floorNum = (x) => (x === GROUND ? 0 : parseInt(x, 10));
 export const FACINGS = ["East", "West", "North", "South", "North-East", "North-West", "South-East", "South-West"];
 export const FURNISHING = ["Unfurnished", "Semi-furnished", "Furnished"];
 export const PARKING = ["Car Parking", "Bike Parking", "Car & Bike", "None"];
-export const BHKS = ["1", "2", "3", "4", "5", "6+"];
+export const BHKS = ["1RK", "1", "2", "3", "4", "5", "6+"];
 export const BATHROOMS = ["1", "2", "3", "4", "5", "6", "7", "8"];
 export const AREA_UNITS = [
   { label: "Sq.Ft", value: "sqft", toSqft: 1 },
@@ -189,7 +190,7 @@ export function availabilityText(f) {
 // Listing titles across the app read "2 BHK Apartment for Rent in Andheri West".
 export function buildTitle(f) {
   const type = typeLabel(f.propertyType);
-  const what = needsBhk(f.category, f.propertyType) && f.bhk ? `${f.bhk} BHK ${type}` : type;
+  const what = needsBhk(f.category, f.propertyType) && f.bhk ? `${bhkLabel(f.bhk)} ${type}` : type;
   return `${what} for ${f.listingType === "rent" ? "Rent" : "Sale"} in ${f.locality.trim()}`.slice(0, 120);
 }
 

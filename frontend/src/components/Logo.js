@@ -7,9 +7,17 @@ import Text from "./AppText";
 // transparent background so it sits on both the light canvas and the dark screens.
 const MARK = require("../../assets/logo_mark.png");
 
-// `tone` is kept for backwards compatibility with existing callers.
-export function LogoMark({ size = 56 }) {
-  return <Image source={MARK} style={{ width: size, height: size }} resizeMode="contain" fadeDuration={0} accessible={false} />;
+// `tint` paints the whole mark one colour (e.g. white on a photo), dropping the artwork's shading.
+export function LogoMark({ size = 56, tint }) {
+  return (
+    <Image
+      source={MARK}
+      style={[{ width: size, height: size }, tint && { tintColor: tint }]}
+      resizeMode="contain"
+      fadeDuration={0}
+      accessible={false}
+    />
+  );
 }
 
 // Mark + "CompareProjects" wordmark, all in the brand violet like the artwork.

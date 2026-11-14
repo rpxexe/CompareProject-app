@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   // Lavender behind both columns; the white content panel is a rounded card beside the sidebar.
   split: { flex: 1, flexDirection: "row", backgroundColor: brand.lavender, paddingTop: 10 },
   content: { flex: 1, backgroundColor: colors.white, borderTopLeftRadius: radius.lg, borderBottomLeftRadius: radius.lg },
-  backdrop: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "rgba(20, 12, 40, 0.18)" },
+  backdrop: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "rgba(12, 19, 40, 0.18)" },
   // Same width as the search field (the header body's 16px gutter) and square on top, so the two
   // read as one card; a hairline marks where the field ends. No shadow - it would spill up over
   // the field - just a hairline edge, plus a short drop shadow below on iOS (Android's elevation
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     backgroundColor: colors.white,
     ...Platform.select({
-      ios: { shadowColor: "#140A2E", shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 8 } },
+      ios: { shadowColor: "#0A122E", shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 8 } },
       default: {},
     }),
   },

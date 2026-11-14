@@ -19,13 +19,24 @@ const LINE = 22;
 // Placeholder that rolls through `items` behind a fixed prefix: the current phrase slides up and
 // fades out, the next rises in from below. Purely visual (screen readers use the input's label);
 // `active` = false freezes it (e.g. while the user is typing or the screen is hidden).
-export default function RollingPlaceholder({ prefix = "Search", items = SEARCH_HINTS, active = true, interval = 2800, style }) {
+// `passes`: how many times to roll through the list before stopping on the first item again
+// (Home uses 1 so the screen can settle; endless by default). A new `run` value starts the passes
+// over (Home bumps it each time it's shown again).
+export default function RollingPlaceholder({ prefix = "Search", items = SEARCH_HINTS, active = true, interval = 2800, passes = Infinity, run = 0, style }) {
   const [index, setIndex] = useState(0);
   const t = useRef(new Animated.Value(0)).current; // -1 below · 0 shown · 1 above
+  const rolls = useRef(0);
+  const lastRun = useRef(run);
 
   useEffect(() => {
-    if (!active || items.length < 2) return undefined;
+    if (run !== lastRun.current) {
+      lastRun.current = run;
+      rolls.current = 0;
+    }
+    if (!active || items.length < 2 || rolls.current >= items.length * passes) return undefined;
     const id = setInterval(() => {
+      rolls.current += 1;
+      if (rolls.current >= items.length * passes) clearInterval(id);
       if (isReducedMotion()) {
         setIndex((n) => (n + 1) % items.length);
         return;
@@ -38,7 +49,7 @@ export default function RollingPlaceholder({ prefix = "Search", items = SEARCH_H
       });
     }, interval);
     return () => clearInterval(id);
-  }, [active, items.length, interval]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active, items.length, interval, passes, run]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const roll = {
     opacity: t.interpolate({ inputRange: [-1, 0, 1], outputRange: [0, 1, 0] }),

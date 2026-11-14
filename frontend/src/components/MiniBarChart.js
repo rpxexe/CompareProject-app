@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, Pressable, StyleSheet, View } from "react-native";
+import { isReducedMotion } from "../hooks/useReducedMotion";
 import Svg, { Line, Path } from "react-native-svg";
 import { brand } from "../theme";
 import Text from "./AppText";
@@ -15,7 +16,17 @@ function barPath(x, y, w, h) {
 // Single-series bar chart for small cards. One hue; the card title names the series, so there
 // is no legend. Tapping a bar selects it and the readout shows its exact value. Screen readers
 // get every value in the accessibility label.
-export default function MiniBarChart({ data, height = 96, color = brand.violet, formatValue = String, unit = "" }) {
+// `play` (optional): false holds the bars at the baseline, true grows them up one after another.
+// Leave it out for a static chart.
+export default function MiniBarChart({ data, height = 96, color = brand.violet, formatValue = String, unit = "", play }) {
+  const grow = useRef(data.map(() => new Animated.Value(play === false && !isReducedMotion() ? 0 : 1))).current;
+  useEffect(() => {
+    if (!play || isReducedMotion()) return;
+    Animated.stagger(
+      110,
+      grow.map((v) => Animated.spring(v, { toValue: 1, stiffness: 160, damping: 14, mass: 0.9, useNativeDriver: true })),
+    ).start();
+  }, [play]); // eslint-disable-line react-hooks/exhaustive-deps
   const [width, setWidth] = useState(0);
   const [selected, setSelected] = useState(() => maxIndex(data));
   const max = Math.max(...data.map((d) => d.value), 1);
@@ -38,23 +49,30 @@ export default function MiniBarChart({ data, height = 96, color = brand.violet, 
         {width > 0 ? (
           <Svg width={width} height={height}>
             {[0.5, 1].map((f) => (
-              <Line key={f} x1={0} x2={width} y1={height - height * f + 1} y2={height - height * f + 1} stroke="#EEE8F8" strokeWidth={1} />
+              <Line key={f} x1={0} x2={width} y1={height - height * f + 1} y2={height - height * f + 1} stroke="#EEF1F2" strokeWidth={1} />
             ))}
-            <Line x1={0} x2={width} y1={height - 0.5} y2={height - 0.5} stroke="#DDD5EE" strokeWidth={1} />
-            {data.map((d, i) => {
-              const h = Math.max(2, (d.value / max) * (height - 6));
-              const x = i * slot + (slot - barW) / 2;
-              return (
-                <Path
-                  key={d.label}
-                  d={barPath(x + gap / 2, height - h, barW - gap, h)}
-                  fill={color}
-                  opacity={i === selected ? 1 : 0.45}
-                />
-              );
-            })}
+            <Line x1={0} x2={width} y1={height - 0.5} y2={height - 0.5} stroke="#DEE3E5" strokeWidth={1} />
           </Svg>
         ) : null}
+        {/* Bars as their own views so each can grow up from the baseline. */}
+        {width > 0
+          ? data.map((d, i) => {
+              const h = Math.max(2, (d.value / max) * (height - 6));
+              const x = i * slot + (slot - barW) / 2 + gap / 2;
+              const w = barW - gap;
+              return (
+                <Animated.View
+                  key={d.label}
+                  pointerEvents="none"
+                  style={[styles.bar, { left: x, top: height - h, width: w, height: h, opacity: i === selected ? 1 : 0.45 }, grow[i] && { transform: [{ scaleY: grow[i] }] }]}
+                >
+                  <Svg width={w} height={h}>
+                    <Path d={barPath(0, 0, w, h)} fill={color} />
+                  </Svg>
+                </Animated.View>
+              );
+            })
+          : null}
         {/* Hit targets wider than the bars. */}
         <View style={StyleSheet.absoluteFill}>
           <View style={styles.hitRow}>
@@ -87,6 +105,7 @@ const styles = StyleSheet.create({
   readout: { marginBottom: 8 },
   readoutValue: { fontSize: 15, fontWeight: "800", color: brand.ink },
   readoutLabel: { fontSize: 11.5, color: brand.inkSoft, fontWeight: "600" },
+  bar: { position: "absolute", transformOrigin: "bottom" },
   hitRow: { flex: 1, flexDirection: "row" },
   hit: { flex: 1 },
   axis: { flexDirection: "row", marginTop: 6 },

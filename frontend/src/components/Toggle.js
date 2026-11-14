@@ -24,7 +24,7 @@ export default function Toggle({ value, onPress, disabled, accessibilityLabel, a
     }).start();
   }, [value, v]);
 
-  const bg = v.interpolate({ inputRange: [0, 1], outputRange: ["#DAD3EA", brand.violet] });
+  const bg = v.interpolate({ inputRange: [0, 1], outputRange: ["#DBE0E2", brand.violet] });
   const x = v.interpolate({ inputRange: [0, 1], outputRange: [3, W - KNOB - 3] });
 
   return (
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     height: KNOB,
     borderRadius: KNOB / 2,
     backgroundColor: "#FFFFFF",
-    shadowColor: "#17133B",
+    shadowColor: "#131C3B",
     shadowOpacity: 0.2,
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 1 },

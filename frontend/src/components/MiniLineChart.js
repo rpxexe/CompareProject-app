@@ -25,14 +25,15 @@ function curve(pts) {
 // Single-series line chart for small cards. One hue; the card title names the series, so no legend.
 // Draws itself in (line traces left to right, area fades up, markers pop) the first time it scrolls
 // into view. Tapping a point moves the crosshair and the readout to its exact value. Screen readers
-// get every value in the label.
-export default function MiniLineChart({ data, height = 120, color = brand.violet, formatValue = String }) {
+// get every value in the label. `animate={false}` renders it fully drawn with no entrance.
+export default function MiniLineChart({ data, height = 120, color = brand.violet, formatValue = String, animate = true }) {
   const [width, setWidth] = useState(0);
   const [selected, setSelected] = useState(() => maxIndex(data));
   const host = useRef(null);
-  const draw = useRef(new Animated.Value(isReducedMotion() ? 1 : 0)).current;
-  const pop = useRef(new Animated.Value(isReducedMotion() ? 1 : 0)).current;
-  const played = useRef(isReducedMotion());
+  const still = !animate || isReducedMotion();
+  const draw = useRef(new Animated.Value(still ? 1 : 0)).current;
+  const pop = useRef(new Animated.Value(still ? 1 : 0)).current;
+  const played = useRef(still);
 
   // Start the draw-in once the chart is actually on screen (Home is long; it usually loads below the fold).
   useEffect(() => {
@@ -84,9 +85,9 @@ export default function MiniLineChart({ data, height = 120, color = brand.violet
               </LinearGradient>
             </Defs>
             {[0.5, 1].map((f) => (
-              <Line key={f} x1={0} x2={width} y1={height - (height - PAD_TOP) * f} y2={height - (height - PAD_TOP) * f} stroke="#EEE8F8" strokeWidth={1} />
+              <Line key={f} x1={0} x2={width} y1={height - (height - PAD_TOP) * f} y2={height - (height - PAD_TOP) * f} stroke="#EEF1F2" strokeWidth={1} />
             ))}
-            <Line x1={0} x2={width} y1={height - 0.5} y2={height - 0.5} stroke="#DDD5EE" strokeWidth={1} />
+            <Line x1={0} x2={width} y1={height - 0.5} y2={height - 0.5} stroke="#DEE3E5" strokeWidth={1} />
             <AnimatedPath d={area} fill="url(#lineFill)" opacity={draw} />
             {sp ? <Line x1={sp.x} x2={sp.x} y1={sp.y} y2={height} stroke={color} strokeOpacity={0.35} strokeWidth={1} strokeDasharray="3,3" /> : null}
             <AnimatedPath

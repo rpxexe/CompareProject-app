@@ -12,7 +12,8 @@ test('free text becomes filters plus leftover words', () => {
   assert.deepEqual(parseSearch('3BHK ready to move villa above 1.5 cr').params,
     { bhk: '3', minPrice: '15000000', propertyTypes: ['villa'], possession: ['ready'] });
   assert.equal(parseSearch('2 bedroom apartment').params.bhk, '2');
-  assert.equal(parseSearch('1rk').params.bhk, '1');
+  assert.equal(parseSearch('1rk').params.bhk, 'rk', 'an RK is its own configuration, not 1 BHK');
+  assert.equal(parseSearch('1 RK in andheri').params.bhk, 'rk');
   assert.equal(parseSearch('flat 80 lakh').params.maxPrice, '8000000', 'a bare budget is the maximum');
   assert.deepEqual(parseSearch('semi-furnished office space under construction').params,
     { furnishing: 'semi', propertyTypes: ['office'], possession: ['under_construction'] });
@@ -61,9 +62,13 @@ test('a correction that still finds nothing is not reported', async () => {
   try {
     models.Property.reset();
     models.Property.seed(seed);
-    const r = (await t.call('GET', '/properties?search=colabba%20zzzzzz')).body;
+    const r = (await t.call('GET', '/properties?search=zzzzzz%20qqqqqq')).body;
     assert.equal(r.total, 0);
     assert.equal(r.correctedSearch, undefined);
+    // With one real word in it, the unknown word is dropped instead (see fuzzy-search.test.js).
+    const relaxed = (await t.call('GET', '/properties?search=colabba%20zzzzzz')).body;
+    assert.equal(relaxed.total, 1);
+    assert.equal(relaxed.correctedSearch, 'colaba');
   } finally {
     t.close();
   }

@@ -29,7 +29,7 @@ const Input = forwardRef(function Input(
     focus: () => inner.current?.focus(),
     blur: () => inner.current?.blur(),
   }));
-  const border = error ? colors.error : focused ? colors.gold : "rgba(225, 216, 245, 0.9)";
+  const border = error ? colors.error : focused ? colors.gold : "rgba(226, 233, 235, 0.9)";
   return (
     <View style={style}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
@@ -39,7 +39,7 @@ const Input = forwardRef(function Input(
           styles.box,
           {
             borderColor: border,
-            backgroundColor: focused ? "rgba(255, 255, 255, 0.95)" : "rgba(251, 249, 255, 0.75)",
+            backgroundColor: focused ? "rgba(255, 255, 255, 0.95)" : "rgba(253, 254, 254, 0.75)",
           },
           focused && styles.glow,
         ]}
@@ -47,7 +47,7 @@ const Input = forwardRef(function Input(
         {prefix ? <Text style={styles.prefix}>{prefix}</Text> : null}
         <TextInput
           ref={inner}
-          placeholderTextColor="#A9A3B0"
+          placeholderTextColor="#A3A6B0"
           style={[
             styles.input,
             multiline && {

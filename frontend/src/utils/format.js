@@ -43,9 +43,27 @@ export const roleLabel = (v) => (v === 'broker' ? 'agent' : v || '');
 
 export const formatPhone = (p) => (p && p.length === 10 ? `+91 ${p.slice(0, 5)} ${p.slice(5)}` : p || '');
 
+// An RK is one room plus a kitchen; posted listings store it as "1RK", filters as "rk".
+export const isRk = (b) => /rk/i.test(String(b ?? ''));
+
+// Bedroom configuration as people read it: "2" -> "2 BHK", "1RK" -> "1 RK", and a comma list
+// (a saved search's filter) "rk,2,3" -> "1 RK, 2, 3 BHK".
+// BHKs a card offers: every configuration of a grouped project ("2, 3 BHK"), else the listing's own.
+export const bhkSummary = (p) => bhkLabel(p?.bhkOptions?.length ? p.bhkOptions.join(',') : p?.bhk);
+
+// Lowest price to advertise ("₹1.38 Cr"): the project's starting price, else the listing's lowest.
+export const fromPrice = (p) => p?.priceFrom || p?.priceMin || p?.price || '';
+
+export function bhkLabel(b) {
+  const parts = String(b ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!parts.length) return '';
+  const nums = parts.filter((x) => !isRk(x));
+  return [parts.some(isRk) && '1 RK', nums.length && `${nums.join(', ')} BHK`].filter(Boolean).join(', ');
+}
+
 export function propertyFacts(p) {
   return [
-    p.bhk && `${p.bhk} BHK`,
+    bhkLabel(p.bhk),
     p.area,
     p.propertyType,
   ].filter(Boolean);
@@ -59,6 +77,10 @@ export function ratingLabel(r) {
 // Listing titles read "3 BHK Apartments in DGS Sheetal Sky Tower, Oshiwara, ..."; cards head
 // with the project name when there is one (not when the "in ..." part is just the locality).
 export function listingName(p) {
+  // The project name (e.g. "Lodha Altus") is what cards show. Only when a listing has none (or it
+  // comes from older saved data without it) fall back to a name pulled from the title.
+  const project = String(p.projectName ?? '').trim();
+  if (project) return project;
   const m = String(p.title || '').match(/\bin\s+([^,]+)/i);
   const name = m && m[1].trim();
   return name && name.toLowerCase() !== String(p.locality || '').toLowerCase() && name.toLowerCase() !== String(p.city || '').toLowerCase()

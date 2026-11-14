@@ -63,7 +63,7 @@ function listingSchema(body) {
     city: atLeast(60, 1, "City is required"),
     locality: atLeast(80, 1, "Locality is required"),
     propertyType: atLeast(60, 1, "Select a property type"),
-    bhk: needsBhk ? text(3).pipe(z.string().regex(/^\d\+?$/, { error: "Select the BHK" })) : text(3),
+    bhk: needsBhk ? text(3).pipe(z.string().regex(/^(?:\d\+?|1RK)$/i, { error: "Select the BHK" })) : text(3),
     price: positive("Enter a valid price in ₹"),
     area: positive("Enter a valid area in sq.ft"),
     description: atLeast(2000, 10, "Describe the property (at least 10 characters)"),

@@ -8,6 +8,7 @@ import { isReducedMotion } from "../../hooks/useReducedMotion";
 import { brand, colors, gradients, radius, shadow } from "../../theme";
 import { LinearGradient } from "expo-linear-gradient";
 import Text from "../AppText";
+import { listingName } from "../../utils/format";
 
 const WIN = "#0E9F6E";
 const WIN_SOFT = "#E3F7EE";
@@ -52,7 +53,7 @@ export function Grid({ items, labelW, colW, fits, children }) {
         {items.map((p) => (
           <View key={p.id} style={[styles.headCell, { width: colW }]}>
             <Cover uri={p.image} style={styles.thumb} iconSize={14} />
-            <Text style={styles.headName} numberOfLines={2}>{p.title}</Text>
+            <Text style={styles.headName} numberOfLines={2}>{listingName(p)}</Text>
           </View>
         ))}
       </View>
@@ -123,7 +124,7 @@ export function DetailsRow({ items, labelW, colW, pick, onOpen }) {
       <View style={{ width: labelW }} />
       {items.map((p, i) => (
         <View key={p.id} style={[styles.cellWrap, { width: colW }]}>
-          <PressableScale onPress={() => onOpen(p)} to={0.94} style={[styles.btn, i === pick ? styles.btnOn : null]} accessibilityRole="button" accessibilityLabel={`View details of ${p.title}`}>
+          <PressableScale onPress={() => onOpen(p)} to={0.94} style={[styles.btn, i === pick ? styles.btnOn : null]} accessibilityRole="button" accessibilityLabel={`View details of ${listingName(p)}`}>
             {i === pick ? (
               <LinearGradient colors={gradients.cta} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
             ) : null}
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: "rgba(124, 44, 245, 0.08)",
+    borderColor: "rgba(36, 87, 255, 0.08)",
     overflow: "hidden",
     ...shadow.card,
   },
@@ -151,7 +152,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
     paddingVertical: 13,
-    backgroundColor: "#FAF7FF",
+    backgroundColor: "#FCFDFE",
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
@@ -160,7 +161,7 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 8,
     borderWidth: 1.3,
-    borderColor: "rgba(124, 44, 245, 0.35)",
+    borderColor: "rgba(36, 87, 255, 0.35)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -179,13 +180,13 @@ const styles = StyleSheet.create({
   cellWin: { backgroundColor: WIN_SOFT },
   value: { flex: 1, fontSize: 12, lineHeight: 16, color: colors.ink, fontWeight: "600" },
   valueWin: { color: "#0B7A55", fontWeight: "800" },
-  na: { color: "#B5AFBB", fontWeight: "500" },
+  na: { color: "#AFB2BB", fontWeight: "500" },
   detailsRow: { paddingVertical: 10 },
   btn: {
     height: 34,
     borderRadius: 10,
     borderWidth: 1.3,
-    borderColor: "rgba(124, 44, 245, 0.45)",
+    borderColor: "rgba(36, 87, 255, 0.45)",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",

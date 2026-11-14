@@ -11,7 +11,7 @@ import { brand, colors, gradients, radius } from "../../theme";
 import Text, { AppTextInput as TextInput } from "../AppText";
 
 const BUILDING = require("../../../assets/onboarding_residence.jpg");
-export const LINE = "#E6DCFA";
+export const LINE = "#E7EDF0";
 const FIELD_BG = "#FFFFFF";
 
 // Light header: back + logo, the step's heading, and the building artwork fading in from the right.
@@ -22,10 +22,10 @@ export function WizardHeader({ title, subtitle, onBack }) {
     <View style={[s.header, { paddingTop: insets.top + 6 }]}>
       <View style={[s.headerArt, { width: Math.min(width * 0.5, 260), height: insets.top + 132 }]} pointerEvents="none">
         <Image source={BUILDING} style={StyleSheet.absoluteFill} resizeMode="cover" fadeDuration={0} />
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(190,160,255,0.22)" }]} />
-        <LinearGradient colors={[colors.ivory, "rgba(251,249,255,0.4)", "rgba(251,249,255,0)"]} locations={[0, 0.45, 0.9]}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(160, 199, 255, 0.22)" }]} />
+        <LinearGradient colors={[colors.ivory, "rgba(253, 254, 254, 0.4)", "rgba(253, 254, 254, 0)"]} locations={[0, 0.45, 0.9]}
           start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFill} />
-        <LinearGradient colors={["rgba(251,249,255,0)", colors.ivory]} locations={[0.5, 1]} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={["rgba(253, 254, 254, 0)", colors.ivory]} locations={[0.5, 1]} style={StyleSheet.absoluteFill} />
       </View>
       <View style={s.headerRow}>
         <Pressable onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Go back" style={s.back}>
@@ -439,7 +439,7 @@ const s = StyleSheet.create({
   stepName: { flexShrink: 1, fontSize: 11.5, color: brand.violet, fontWeight: "700" },
 
   card: {
-    backgroundColor: "#FFFFFF", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: "#EEE7FB",
+    backgroundColor: "#FFFFFF", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: "#EEF3F4",
     shadowColor: brand.deep, shadowOpacity: 0.07, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 2,
   },
   labelRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
@@ -460,7 +460,7 @@ const s = StyleSheet.create({
   prefix: { marginLeft: -12, marginRight: 10, alignSelf: "stretch", width: 40, alignItems: "center", justifyContent: "center", borderRightWidth: 1.2, borderRightColor: LINE },
   prefixText: { fontSize: 15, fontWeight: "700", color: brand.violet },
   selectOpen: { borderColor: brand.violet },
-  locked: { backgroundColor: "#F1EEF7", borderColor: "#E4DFEE" },
+  locked: { backgroundColor: "#F8F9FA", borderColor: "#E4E8E9" },
   lockedText: { color: brand.inkSoft },
   layer: { ...StyleSheet.absoluteFillObject, zIndex: 100, elevation: 20 },
   menu: {
@@ -471,7 +471,7 @@ const s = StyleSheet.create({
   optionOn: { backgroundColor: brand.lavender },
   optionIcon: { width: 28, height: 28, borderRadius: 8, backgroundColor: brand.lavender, alignItems: "center", justifyContent: "center" },
   optionIconOn: { backgroundColor: brand.violet },
-  optionPressed: { backgroundColor: "#F7F3FF" },
+  optionPressed: { backgroundColor: "#FBFDFD" },
   optionText: { flex: 1, fontSize: 14, fontWeight: "600", color: brand.ink },
   optionTextOn: { color: brand.violet, fontWeight: "700" },
 
@@ -481,7 +481,7 @@ const s = StyleSheet.create({
   suggestTitle: { fontSize: 14, fontWeight: "500", color: brand.ink },
   suggestMatch: { fontWeight: "800", color: brand.violet },
   suggestSub: { fontSize: 11.5, fontWeight: "600", color: brand.inkSoft, marginTop: 1 },
-  tile: { flex: 1, height: 96, borderRadius: 16, borderWidth: 1.5, borderColor: LINE, backgroundColor: "#FCFAFF", alignItems: "center", justifyContent: "center", gap: 8 },
+  tile: { flex: 1, height: 96, borderRadius: 16, borderWidth: 1.5, borderColor: LINE, backgroundColor: "#FDFEFE", alignItems: "center", justifyContent: "center", gap: 8 },
   tileOn: { borderColor: brand.violet, backgroundColor: brand.lavender },
   tileTick: { position: "absolute", top: 8, right: 8, width: 20, height: 20, borderRadius: 10, backgroundColor: brand.violet, alignItems: "center", justifyContent: "center" },
   tileText: { fontSize: 14.5, fontWeight: "700", color: brand.ink },
@@ -494,7 +494,7 @@ const s = StyleSheet.create({
   pillOn: { borderColor: brand.violet },
   pillText: { fontSize: 13, fontWeight: "600", color: brand.ink },
 
-  upload: { borderWidth: 1.5, borderStyle: "dashed", borderColor: "#C9B5F5", borderRadius: 16, backgroundColor: "#FCFAFF", alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: 12 },
+  upload: { borderWidth: 1.5, borderStyle: "dashed", borderColor: "#B5D7F5", borderRadius: 16, backgroundColor: "#FDFEFE", alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: 12 },
   uploadTitle: { fontSize: 14, fontWeight: "700", color: brand.ink, marginTop: 4 },
   uploadHint: { fontSize: 12, color: brand.inkSoft, textAlign: "center" },
 });

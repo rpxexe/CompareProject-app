@@ -9,9 +9,21 @@ const {
   paging,
   str,
 } = require("../utils/validate");
-const { normalizeProperty } = require("../utils/property");
+const { normalizeProperty, unitBasics } = require("../utils/property");
+const { SCAN_CAP, UNIT_FIELDS, collapseUnits, withProjectSummary, sortRows, scanFields } = require("../utils/projectGroups");
+const { loadProjectIndex } = require("../utils/projectIndex");
+const { textMatches } = require("../utils/atlasSearch");
+
+// The MongoDB filter for a query. Free-text words go through Atlas Search when it's on (ranked,
+// typo-tolerant; `scores` ranks relevance), otherwise through regexes (`scores` is null).
+async function filterFor(query) {
+  const hits = await textMatches(searchWords(query));
+  return { filter: buildPropertyFilter(query, hits ? { textIds: hits.ids } : {}), scores: hits?.scores || null };
+}
+const countFor = async (query) => Property.countDocuments((await filterFor(query)).filter);
 const {
   buildPropertyFilter,
+  searchWords,
   buildSort,
   titleMatch,
   SECTIONS,
@@ -21,7 +33,7 @@ const {
 const { summarise, publicRating } = require("../utils/rating");
 const { cached, cachedByKey } = require("../utils/cache");
 const { z, validate, text } = require("../utils/zod");
-const { buildVocabulary, correctSearch } = require("../utils/searchText");
+const { buildVocabulary, correctSearch, dropWord, nearWords, parseSearch, replaceWord } = require("../utils/searchText");
 
 const RATING_ERROR = "Rating must be a whole number from 1 to 5";
 const reviewSchema = z.object({
@@ -49,26 +61,93 @@ const VOCAB_FIELDS = ["title", "name", "projectName", "locality", "city", "devel
 const loadSearchVocabulary = cached(10 * 60 * 1000, async () =>
   buildVocabulary(await Property.find(PUBLIC).select(VOCAB_FIELDS.join(" ")).limit(50000).lean(), VOCAB_FIELDS));
 
-// Typo tolerance: a search that finds nothing is retried once with misspelt words swapped for the
-// closest words in the listings ("andhery" -> "andheri"). Returns the query to use and, when it
-// was corrected, the corrected text so the app can say what it searched for.
+// Forgiving search: people type whatever is convenient, so a search that finds nothing is retried.
+//   1. Typos, joined and split words are fixed against the words in the listings
+//      ("andhery" -> "andheri", "lodhaaltus" -> "lodha altus", "white field" -> "whitefield").
+//   2. Still nothing: the words that rule everything out are dropped, keeping as much of what was
+//      typed as finds something ("lodha altus luxury" -> "lodha altus"). Filters named in the text
+//      (BHK, budget, rent...) and the app's own filters are never dropped.
+// (Aliases - "bengaluru" for Bangalore - apply to every search, in wordRegex.)
+// Returns the query to use and, when it changed, the text actually searched, so the app can say
+// "Showing results for ...". Only reported when it finds something.
 async function resolveSearch(query) {
   const search = str(query.search, 80);
-  if (!search || (await Property.countDocuments(buildPropertyFilter(query))) > 0) return { query, corrected: null };
-  const fixed = correctSearch(search, await loadSearchVocabulary());
-  const retry = fixed && { ...query, search: fixed };
-  // Only worth showing "Showing results for ..." when the corrected text finds something.
-  if (!retry || !(await Property.countDocuments(buildPropertyFilter(retry)))) return { query, corrected: null };
-  return { query: retry, corrected: fixed };
+  const finds = async (text) => (await countFor({ ...query, search: text })) > 0;
+  if (!search || (await finds(search))) return { query, corrected: null };
+  const vocab = await loadSearchVocabulary();
+  const fixed = correctSearch(search, vocab);
+  if (fixed && (await finds(fixed))) return { query: { ...query, search: fixed }, corrected: fixed };
+  const relaxed = await relaxSearch(query, fixed || search, finds, vocab);
+  if (relaxed) return { query: { ...query, search: relaxed }, corrected: relaxed };
+  return { query, corrected: null };
 }
+
+const RELAX_ROUNDS = 3;
+// Bends the search until it finds something. Each round first tries swapping one word for a
+// close listing word (a real word, but not the one meant: "altis" for "altus"), then dropping a
+// single word (latest typed first - usually the extra detail); if no single word is to blame,
+// the word matching the fewest listings on its own goes and the next round tries again. A
+// search is never relaxed down to nothing: what's left must still name a word or a filter.
+async function relaxSearch(query, text, finds, vocab) {
+  const meaningful = (t) => {
+    const parsed = parseSearch(t);
+    return parsed.words.length > 0 || Object.keys(parsed.params).length > 0;
+  };
+  let current = text;
+  for (let round = 0; round < RELAX_ROUNDS; round += 1) {
+    const { words } = parseSearch(current);
+    if (!words.length) return null;
+    for (const w of [...words].reverse()) {
+      for (const alt of nearWords(w, vocab)) {
+        const t = replaceWord(current, w, alt);
+        if (await finds(t)) return t;
+      }
+    }
+    for (const w of [...words].reverse()) {
+      const t = dropWord(current, w);
+      if (meaningful(t) && (await finds(t))) return t;
+    }
+    if (words.length < 2) return null;
+    const alone = await Promise.all(
+      words.map((w) => countFor({ ...query, search: w })),
+    );
+    current = dropWord(current, words[alone.indexOf(Math.min(...alone))]);
+  }
+  return null;
+}
+
+// `?group=project`: one row per project instead of one per unit (see utils/projectGroups).
+const wantsProjects = (query) => str(query.group, 10) === "project";
+
+// One page of projects. `batches` are unit rows in rank order (light fields); `fullDocs`, when the
+// caller already has full documents, saves loading the page's lead units again.
+async function projectPage(batches, skip, limit, fullDocs) {
+  const groups = collapseUnits(batches, (await loadProjectIndex()).groupOf);
+  const slice = groups.slice(skip, skip + limit);
+  const known = new Map((fullDocs || []).map((d) => [String(d._id), d]));
+  const missing = slice.map((g) => g.lead).filter((id) => !known.has(String(id)));
+  if (missing.length) {
+    for (const d of await Property.find({ _id: { $in: missing } }).lean()) known.set(String(d._id), d);
+  }
+  const rows = slice.filter((g) => known.has(String(g.lead)));
+  const items = await withRatings(rows.map((g) => known.get(String(g.lead))));
+  return { items: items.map((it, i) => withProjectSummary(it, rows[i])), total: groups.length };
+}
+
+// All matching units as small rows, ranked by `order`. Sorted in Node, not MongoDB: see sortRows.
+const scanUnits = async (filter, order) =>
+  sortRows(await Property.find(filter).select(scanFields(order)).limit(SCAN_CAP).lean(), order);
 
 // GET /api/properties – search / filter / sort / paginate. Everything is done in MongoDB.
 const getProperties = async (req, res) => {
   const { page, limit, skip } = paging(req.query);
   const { query, corrected } = await resolveSearch(req.query);
   const correctedSearch = corrected || undefined;
-  const filter = buildPropertyFilter(query);
+  const { filter, scores } = await filterFor(query);
   const sort = str(query.sort, 12);
+  const grouped = wantsProjects(query);
+  const reply = ({ items, total }) =>
+    res.json({ items, total, correctedSearch, page, pages: Math.max(1, Math.ceil(total / limit)) });
 
   if (sort === "rating") {
     const ranked = await PropertyRating.find({ count: { $gte: 1 } })
@@ -84,6 +163,7 @@ const getProperties = async (req, res) => {
     docs.sort(
       (a, b) => order.indexOf(String(a._id)) - order.indexOf(String(b._id)),
     );
+    if (grouped) return reply(await projectPage([docs], skip, limit, docs));
     const items = await withRatings(docs.slice(skip, skip + limit));
     return res.json({
       items,
@@ -94,11 +174,28 @@ const getProperties = async (req, res) => {
     });
   }
 
-  const title = sort === "relevance" ? titleMatch(query) : null;
+  // Relevance with Atlas Search: best search score first (ties keep the usual order).
+  if (sort === "relevance" && scores) {
+    const score = (r) => scores.get(String(r._id)) || 0;
+    const rows = (await scanUnits(filter, buildSort(sort))).sort((a, b) => score(b) - score(a));
+    if (grouped) return reply(await projectPage([rows], skip, limit));
+    const ids = rows.slice(skip, skip + limit).map((r) => r._id);
+    const byId = new Map((await Property.find({ _id: { $in: ids } }).lean()).map((d) => [String(d._id), d]));
+    const docs = ids.map((id) => byId.get(String(id))).filter(Boolean);
+    return reply({ items: await withRatings(docs), total: rows.length });
+  }
+
+  // Relevance without it: listings whose name has every word first, then the rest.
+  const title = sort === "relevance" && !scores ? titleMatch(query) : null;
   if (title) {
     // Title matches first, then the rest; each block keeps the relevance order.
     const first = { $and: [filter, title] };
     const rest = { $and: [filter, { $nor: [title] }] };
+    if (grouped) {
+      const order = buildSort(sort);
+      const batches = await Promise.all([scanUnits(first, order), scanUnits(rest, order)]);
+      return reply(await projectPage(batches, skip, limit));
+    }
     const [nFirst, nRest] = await Promise.all([
       Property.countDocuments(first),
       Property.countDocuments(rest),
@@ -125,6 +222,8 @@ const getProperties = async (req, res) => {
     });
   }
 
+  if (grouped) return reply(await projectPage([await scanUnits(filter, buildSort(sort))], skip, limit));
+
   const [docs, total] = await Promise.all([
     Property.find(filter).sort(buildSort(sort)).skip(skip).limit(limit).lean(),
     Property.countDocuments(filter),
@@ -142,7 +241,33 @@ const getProperties = async (req, res) => {
 // "Show N results" button while filters are being edited.
 const getPropertyCount = async (req, res) => {
   const { query, corrected } = await resolveSearch(req.query);
-  res.json({ total: await Property.countDocuments(buildPropertyFilter(query)), correctedSearch: corrected || undefined });
+  const { filter } = await filterFor(query);
+  // Grouped lists count projects, so "Show N results" matches what the list will show.
+  // `?by=city` also returns where the matches are (most first, up to 8 cities), for "available in"
+  // suggestions when a search finds nothing in the chosen city.
+  const byCity = str(query.by, 10) === "city";
+  let total;
+  let cities;
+  if (wantsProjects(query) || byCity) {
+    const { groupOf } = await loadProjectIndex();
+    const rows = await Property.find(filter).select(UNIT_FIELDS).limit(SCAN_CAP).lean();
+    const keyOf = wantsProjects(query) ? groupOf : (r) => String(r._id);
+    total = new Set(rows.map(keyOf)).size;
+    if (byCity) {
+      const perCity = new Map();
+      for (const r of rows) {
+        const city = typeof r.city === "string" ? r.city.trim() : "";
+        if (!city) continue;
+        if (!perCity.has(city)) perCity.set(city, new Set());
+        perCity.get(city).add(keyOf(r));
+      }
+      cities = [...perCity]
+        .map(([city, keys]) => ({ city, count: keys.size }))
+        .sort((a, b) => b.count - a.count || a.city.localeCompare(b.city))
+        .slice(0, 8);
+    }
+  } else total = await Property.countDocuments(filter);
+  res.json({ total, ...(cities ? { cities } : {}), correctedSearch: corrected || undefined });
 };
 
 // GET /api/properties/categories – which "New Project" categories actually have data.
@@ -221,8 +346,9 @@ const loadInsights = cachedByKey(10 * 60 * 1000, 50, async (city) => {
   for (const p of items) {
     if (p.priceValue > 0) prices.push(p.priceValue);
     const n = parseInt(p.bhk, 10);
-    if (n >= 1 && p.priceValue > 0) {
-      const key = n >= 4 ? "4+" : String(n);
+    const rk = /rk/i.test(p.bhk);
+    if ((rk || n >= 1) && p.priceValue > 0) {
+      const key = rk ? "RK" : n >= 4 ? "4+" : String(n);
       if (!byBhk.has(key)) byBhk.set(key, []);
       byBhk.get(key).push(p.priceValue);
     }
@@ -234,7 +360,7 @@ const loadInsights = cachedByKey(10 * 60 * 1000, 50, async (city) => {
     city: city || "",
     listings: items.length,
     medianPrice: median(prices),
-    priceByBhk: ["1", "2", "3", "4+"]
+    priceByBhk: ["RK", "1", "2", "3", "4+"]
       .filter((k) => byBhk.has(k))
       .map((k) => ({ bhk: k, medianPrice: median(byBhk.get(k)), listings: byBhk.get(k).length })),
     listingsByStage: STAGES.map((stage) => ({ stage, listings: byStage.get(stage) })),
@@ -359,8 +485,26 @@ async function listingsByIds(query, max, tooMany) {
   return items;
 }
 
+// Adds what each compared listing's whole project offers - every BHK across its units, its
+// starting price and unit count - so the comparison can show "BHK offered" per project.
+async function withProjectOffers(items) {
+  if (!items.length) return items;
+  const index = await loadProjectIndex();
+  const groups = items.map((it) => index.groupOf({ _id: it.id, projectKey: it.projectKey }));
+  const keys = [...new Set(groups.flatMap((g) => index.keysOf(g)))];
+  const units = keys.length
+    ? await Property.find({ $and: [PUBLIC, { projectKey: { $in: keys } }] }).select(UNIT_FIELDS).limit(2000).lean()
+    : [];
+  return items.map((it, i) => {
+    const mine = units.filter((u) => index.groupOf(u) === groups[i]);
+    const summary = collapseUnits([mine.length ? mine : [{ _id: it.id, bhk: it.bhk, price: it.priceValue }]])[0];
+    return withProjectSummary({ ...it }, summary);
+  });
+}
+
 const getCompareProperties = async (req, res) => {
-  res.json({ items: await listingsByIds(req.query, 3, "You can compare up to 3 projects at a time") });
+  const items = await listingsByIds(req.query, 3, "You can compare up to 3 projects at a time");
+  res.json({ items: await withProjectOffers(items) });
 };
 
 // Full cards for lists the app keeps on the device (e.g. recently viewed).
@@ -396,8 +540,38 @@ async function findVisibleListing(req) {
 
 const getProperty = async (req, res) => {
   const doc = await findVisibleListing(req);
-  const [item] = await withRatings([doc]);
-  res.json({ property: { ...item, isOwner: ownsListing(req.user, doc) } });
+  const [[item], index] = await Promise.all([withRatings([doc]), loadProjectIndex()]);
+  // The merged project (same key the grouped lists and the units picker use).
+  res.json({ property: { ...item, projectKey: index.groupOf(doc), isOwner: ownsListing(req.user, doc) } });
+};
+
+// GET /api/properties/:id/units – every public unit of this listing's project (the listing itself
+// included), ordered by BHK then price. Powers the BHK / size picker on the details screen. A
+// listing without a project key is its own only unit.
+const UNIT_SUMMARY = ["id", "title", "projectName", "bhk", "price", "priceMin", "priceValue", "area", "propertyType", "image", "possessionStatus"];
+const bhkSortRank = (b) => (b === "1RK" ? 0.5 : Number.isFinite(Number(b)) && b !== "" ? Number(b) : 1000);
+const getProjectUnits = async (req, res) => {
+  const doc = await findVisibleListing(req);
+  const { groupOf, keysOf } = await loadProjectIndex();
+  const key = groupOf(doc);
+  const siblings =
+    key === String(doc._id)
+      ? []
+      : await Property.find({ $and: [PUBLIC, { projectKey: { $in: keysOf(key) } }] }).limit(200).lean();
+  const docs = [doc, ...siblings.filter((d) => String(d._id) !== String(doc._id))];
+  const units = docs
+    .map((d) => {
+      const n = normalizeProperty(d);
+      const unit = Object.fromEntries(UNIT_SUMMARY.map((k) => [k, n[k]]));
+      unit.priceFromValue = unitBasics(d).price;
+      return unit;
+    })
+    .sort(
+      (a, b) =>
+        bhkSortRank(a.bhk) - bhkSortRank(b.bhk) ||
+        (a.priceFromValue ?? Infinity) - (b.priceFromValue ?? Infinity),
+    );
+  res.json({ projectKey: key, units });
 };
 
 async function setSaved(req, res, desired) {
@@ -537,6 +711,7 @@ exports.getCompareProperties = getCompareProperties;
 exports.getPropertiesByIds = getPropertiesByIds;
 exports.getSavedProperties = getSavedProperties;
 exports.getProperty = getProperty;
+exports.getProjectUnits = getProjectUnits;
 exports.saveProperty = saveProperty;
 exports.deleteSavedProperty = deleteSavedProperty;
 exports.getReviews = getReviews;

@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { brand, colors, gradients } from "../../theme";
 import Text from "../AppText";
 
-const COLORS = ["#7C2CF5", "#F5B82E", "#D92CFF", "#3B6FE0", "#E0457B", "#0E9F6E"];
+const COLORS = ["#2457FF", "#F5B82E", "#1FB6F0", "#3B6FE0", "#E0457B", "#0E9F6E"];
 // Confetti bursting out of the tick: evenly spread angles, a mix of distances, sizes and spins.
 const PIECES = Array.from({ length: 18 }, (_, i) => {
   const angle = (i / 18) * Math.PI * 2 + (i % 2 ? 0.18 : -0.12);

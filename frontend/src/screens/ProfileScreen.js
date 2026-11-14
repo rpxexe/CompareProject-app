@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
   halo: {
     width: AVATAR + 20, height: AVATAR + 20, borderRadius: (AVATAR + 20) / 2,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.6)', borderWidth: 1, borderColor: 'rgba(124,44,245,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.6)', borderWidth: 1, borderColor: 'rgba(36, 87, 255, 0.10)',
   },
   // Clips the shine to the avatar circle (inside its white border) without clipping the avatar's shadow.
   shineClip: { ...StyleSheet.absoluteFillObject, borderRadius: AVATAR / 2, overflow: 'hidden' },

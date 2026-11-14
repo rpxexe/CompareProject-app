@@ -68,7 +68,7 @@ function Option({ label, on, onPress, icon }) {
       accessibilityState={{ checked: on }}
       accessibilityLabel={label}
     >
-      <Ionicons name={icon || (on ? "radio-button-on" : "radio-button-off")} size={20} color={on || icon ? brand.violet : "#C9C2DB"} />
+      <Ionicons name={icon || (on ? "radio-button-on" : "radio-button-off")} size={20} color={on || icon ? brand.violet : "#C2CCDB"} />
       <Text style={[styles.rowText, on && styles.rowTextOn]} numberOfLines={2}>{label}</Text>
     </Pressable>
   );

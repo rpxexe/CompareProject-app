@@ -14,7 +14,7 @@ import { useLocationAccess } from "../context/LocationAccessContext";
 import { useBottomSpace } from "../hooks/useBottomSpace";
 import { useToast } from "../context/ToastContext";
 import { api } from "../services/api";
-import { formatInr } from "../utils/format";
+import { bhkLabel, formatInr } from "../utils/format";
 import PressableScale from "../components/PressableScale";
 import { isReducedMotion } from "../hooks/useReducedMotion";
 import { POPULAR_CITIES, getCurrentUserLocation } from "../services/locationService";
@@ -399,7 +399,7 @@ function Wizard({ navigation, initial, editId }) {
     ["grid-outline", "Category", labelOf(CATEGORY_OPTIONS, form.category), 0],
     ["business-outline", "Type", typeLabel(form.propertyType), 0],
     ["location-outline", "Location", [form.locality.trim(), form.city.trim()].filter(Boolean).join(", "), 0],
-    ["bed-outline", "Bedrooms", needsBhk(form.category, form.propertyType) && form.bhk ? `${form.bhk} BHK` : "", 0],
+    ["bed-outline", "Bedrooms", needsBhk(form.category, form.propertyType) && form.bhk ? bhkLabel(form.bhk) : "", 0],
     ["water-outline", "Bathrooms", building ? form.bathrooms : "", 0],
     ["resize-outline", "Area", form.area ? `${form.area} ${labelOf(AREA_UNITS, form.areaUnit)}` : "", 0],
     ["layers-outline", "Total floors", building ? form.totalFloors : "", 0],
@@ -501,7 +501,7 @@ function Wizard({ navigation, initial, editId }) {
                 <FieldLabel icon="options-outline">Specifications</FieldLabel>
                 {needsBhk(form.category, form.propertyType) ? (
                   <SpecRow icon="bed-outline" label="Bedrooms" required error={errors.bhk} locked={editing}>
-                    <SelectField title="Bedrooms" value={form.bhk} options={BHKS} optionIcon="bed-outline" format={(b) => `${b} BHK`} onChange={(v) => set("bhk", v)} error={errors.bhk} disabled={editing} />
+                    <SelectField title="Bedrooms" value={form.bhk} options={BHKS} optionIcon="bed-outline" format={bhkLabel} onChange={(v) => set("bhk", v)} error={errors.bhk} disabled={editing} />
                   </SpecRow>
                 ) : null}
                 <SpecRow icon="resize-outline" label="Area" required error={errors.area}>
@@ -788,7 +788,7 @@ const s = StyleSheet.create({
   pillGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 },
   half: { width: "48.5%" },
   count: { fontSize: 12, fontWeight: "600", color: brand.inkSoft },
-  testBar: { marginBottom: 12, borderStyle: "dashed", borderColor: "#C9B5F5", backgroundColor: "#FCFAFF" },
+  testBar: { marginBottom: 12, borderStyle: "dashed", borderColor: "#B5D7F5", backgroundColor: "#FDFEFE" },
   testTitle: { fontSize: 12, fontWeight: "800", color: brand.violet, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.4 },
   tabsWrap: { marginHorizontal: -16, marginBottom: 12 },
   tabs: { paddingHorizontal: 16, gap: 8 },
@@ -807,12 +807,12 @@ const s = StyleSheet.create({
   tileGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 8 },
   tile: { width: "48.8%", minHeight: 50, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1.2, borderColor: LINE, backgroundColor: "#fff" },
   tileOn: { borderColor: brand.violet, backgroundColor: brand.lavender },
-  tick: { width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: "#C9B5F5", alignItems: "center", justifyContent: "center" },
+  tick: { width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: "#B5D7F5", alignItems: "center", justifyContent: "center" },
   tickRadio: { borderRadius: 10 },
   tickOn: { backgroundColor: brand.violet, borderColor: brand.violet },
   tileText: { flex: 1, fontSize: 12.5, lineHeight: 16, fontWeight: "600", color: brand.ink },
   tileTextOn: { color: brand.violet, fontWeight: "700" },
-  secNext: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 44, marginTop: 14, borderRadius: 12, borderWidth: 1.2, borderStyle: "dashed", borderColor: "#C9B5F5" },
+  secNext: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 44, marginTop: 14, borderRadius: 12, borderWidth: 1.2, borderStyle: "dashed", borderColor: "#B5D7F5" },
   secNextText: { fontSize: 13, fontWeight: "800", color: brand.violet },
   smallHead: { fontSize: 13, fontWeight: "800", color: brand.ink, marginBottom: 8 },
 
@@ -824,7 +824,7 @@ const s = StyleSheet.create({
   roomPill: { minHeight: 36, paddingHorizontal: 14 },
   thumbs: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 },
   thumb: { width: "31.5%", aspectRatio: 1, borderRadius: 12, overflow: "hidden", backgroundColor: brand.lavender },
-  thumbX: { position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(23,19,59,0.65)", alignItems: "center", justifyContent: "center" },
+  thumbX: { position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(19, 28, 59, 0.65)", alignItems: "center", justifyContent: "center" },
   note: { fontSize: 12.5, color: brand.inkSoft, textAlign: "center", marginTop: 4 },
 
   reviewHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
@@ -837,7 +837,7 @@ const s = StyleSheet.create({
   cellKey: { fontSize: 11.5, color: brand.inkSoft, fontWeight: "600" },
   cellVal: { fontSize: 13.5, color: brand.ink, fontWeight: "700", marginTop: 1 },
   agree: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: 16 },
-  box: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: "#C9B5F5", alignItems: "center", justifyContent: "center", marginTop: 1 },
+  box: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: "#B5D7F5", alignItems: "center", justifyContent: "center", marginTop: 1 },
   boxOn: { backgroundColor: brand.violet, borderColor: brand.violet },
   agreeText: { flex: 1, fontSize: 12.5, lineHeight: 18, color: brand.inkSoft },
   terms: { color: brand.violet, fontWeight: "700" },

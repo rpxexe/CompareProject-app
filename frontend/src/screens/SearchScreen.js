@@ -1,18 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, FlatList, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomSpace } from "../hooks/useBottomSpace";
-import FilterChip from "../components/FilterChip";
 import { badgeFor } from "../components/PropertyCard";
 import ListingCard, { ListingCardSkeleton, ListingSkeletonList } from "../components/search/ListingCard";
 import BottomSheet from "../components/BottomSheet";
 import Button from "../components/Button";
 import CountUp from "../components/CountUp";
 import Reveal from "../components/Reveal";
-import { EmptyState, ErrorState } from "../components/StateViews";
+import { ErrorState } from "../components/StateViews";
+import NoResults from "../components/search/NoResults";
 import QuickFilterSheet from "../components/filters/QuickFilterSheet";
 import { api } from "../services/api";
 import PressableScale from "../components/PressableScale";
@@ -257,7 +258,7 @@ export default function SearchScreen({ navigation, route }) {
           {sortFilter ? (
             <LinearGradient
               pointerEvents="none"
-              colors={["rgba(251, 249, 255, 0)", brand.bg]}
+              colors={["rgba(253, 254, 254, 0)", brand.bg]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.chipsFade}
@@ -293,13 +294,16 @@ export default function SearchScreen({ navigation, route }) {
       ) : st.error && !items.length ? (
         <ErrorState title="Unable to load results" error={st.error} onRetry={() => load(1, false)} />
       ) : (
-        <FlatList
+        // FlashList recycles card views instead of mounting new ones while you scroll, so long
+        // result lists stay smooth. It doesn't support `gap`, hence the separator.
+        <FlashList
           key={generation}
           ref={listRef}
           data={items}
           keyExtractor={(i) => i.id}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: 16, paddingTop: 4, paddingBottom: bottom + 30, gap: 12 }}
+          contentContainerStyle={{ padding: 16, paddingTop: 4, paddingBottom: bottom + 30 }}
+          ItemSeparatorComponent={ListGap}
           renderItem={({ item, index }) => <ListingCard property={item} index={index} tag={tagFor(item)} />}
           onScroll={onScroll}
           scrollEventThrottle={32}
@@ -308,34 +312,14 @@ export default function SearchScreen({ navigation, route }) {
             if (!st.more && !st.loading && page < pages) load(page + 1, true);
           }}
           ListEmptyComponent={
-            <View>
-              <EmptyState
-                title="No results"
-                message={
-                  suggestions.length
-                    ? "These filters are hiding the most listings. Tap one to remove it."
-                    : activeCount || fs.query.search
-                      ? "Try a different search or fewer filters."
-                      : `No ${ctx?.label.toLowerCase() || ""} listings here yet.`
-                }
-              />
-              {suggestions.length ? (
-                <Reveal delay={220} style={styles.suggest}>
-                  {suggestions.map((r) => (
-                    <FilterChip
-                      key={r.id}
-                      label={`${r.label}  +${removalCounts[r.id].toLocaleString("en-IN")}`}
-                      icon="close"
-                      onPress={() => filters.replace(r.state)}
-                      accessibilityLabel={`Remove ${r.label}, shows ${removalCounts[r.id]} more results`}
-                    />
-                  ))}
-                </Reveal>
-              ) : null}
-              {activeCount ? (
-                <Button title="Clear all filters" variant="ghost" small onPress={filters.clearAll} style={{ alignSelf: "center", marginTop: 14 }} />
-              ) : null}
-            </View>
+            <NoResults
+              state={fs}
+              config={config}
+              suggestions={suggestions.map((r) => ({ ...r, count: removalCounts[r.id] }))}
+              onApply={(next) => filters.replace(next)}
+              onClearAll={filters.clearAll}
+              tagFor={tagFor}
+            />
           }
           ListFooterComponent={
             st.more ? (
@@ -389,7 +373,7 @@ export default function SearchScreen({ navigation, route }) {
               accessibilityState={{ checked: on }}
             >
               <Text style={[styles.sortRowText, on && styles.sortRowTextOn]}>{o.label}</Text>
-              <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={20} color={on ? brand.violet : "#C9C3D3"} />
+              <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={20} color={on ? brand.violet : "#C3C8D3"} />
             </PressableScale>
           );
         })}
@@ -421,6 +405,9 @@ function Pill({ icon, label, active, trailing, onPress, onClear, accessibilityLa
     </PressableScale>
   );
 }
+
+// 12pt between result cards (FlashList has no `gap`).
+const ListGap = () => <View style={{ height: 12 }} />;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: brand.bg },
@@ -479,7 +466,6 @@ const styles = StyleSheet.create({
     borderColor: brand.lavenderMid,
   },
   sortText: { flexShrink: 1, fontSize: 12.5, fontWeight: "800", color: brand.violet },
-  suggest: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, paddingHorizontal: 20 },
   topBtnWrap: { position: "absolute", right: 20 },
   topBtn: {
     width: 48,

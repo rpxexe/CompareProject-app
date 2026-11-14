@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Dimensions, Image, Pressable, ScrollView, Share, StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,7 +26,8 @@ import { isReducedMotion } from "../hooks/useReducedMotion";
 import { api } from "../services/api";
 import { openExternal } from "../utils/links";
 import { propertyWebUrl } from "../config/web";
-import { floorText, isPresent, listingName } from "../utils/format";
+import { bhkLabel, floorText, fromPrice, isPresent, isRk, listingName } from "../utils/format";
+import PriceFrom from "../components/PriceFrom";
 import { brand, colors, fonts, gradients, radius, shadow } from "../theme";
 import Text from "../components/AppText";
 
@@ -40,7 +41,7 @@ const TABS = [
 ];
 const TOP_AMENITIES = 4;
 // Every detail block shares one soft fill; icons use the brand violet.
-const BLOCK_BG = "#F4EFFF";
+const BLOCK_BG = "#F9FCFD";
 const AUTO_SLIDE_MS = 3500;
 const AM_GAP = 10;
 const AM_TILE_H = 90;
@@ -201,7 +202,7 @@ function Gallery({ images, scrollY, onDoubleTap }) {
         <Ionicons name="heart" size={86} color={colors.white} />
       </Animated.View>
       {/* Darkens the top so the round buttons and status bar stay readable on bright photos. */}
-      <LinearGradient colors={["rgba(15, 8, 36, 0.45)", "rgba(15, 8, 36, 0)"]} style={styles.galShade} pointerEvents="none" />
+      <LinearGradient colors={["rgba(8, 15, 36, 0.45)", "rgba(8, 15, 36, 0)"]} style={styles.galShade} pointerEvents="none" />
       {images.length > 1 ? (
         <>
           <View style={[styles.dots, { width: dots * step - DOT_GAP }]} pointerEvents="none">
@@ -347,7 +348,37 @@ export default function PropertyDetailsScreen({ navigation, route }) {
   // Developers only open this to preview their own listings: no saving, comparing or enquiring.
   const { user, token, isDeveloper, openLoginPrompt } = useAuth();
   const { data, loading, error, reload } = useApi(() => api.property(id), [id]);
-  const p = data?.property || preview;
+  // After picking another unit the old unit's data is still loaded for a moment: show the picked
+  // unit's summary (preview) until its own details arrive.
+  const p = (data?.property?.id === id ? data.property : null) || preview || data?.property;
+
+  // Every unit of this project (one per BHK / size / price), fetched once per project. Grouped
+  // by BHK, cheapest first, for the "Configurations" picker.
+  const projectKey = p?.projectKey;
+  const [units, setUnits] = useState(null);
+  const unitsFor = useRef(null);
+  useEffect(() => {
+    if (!projectKey || unitsFor.current === projectKey) return;
+    unitsFor.current = projectKey;
+    api.projectUnits(id).then((r) => setUnits(r?.units || [])).catch(() => {
+      unitsFor.current = null;
+    });
+  }, [projectKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const configs = useMemo(() => {
+    const byBhk = new Map();
+    for (const u of units || []) {
+      const k = u.bhk || "";
+      if (!byBhk.has(k)) byBhk.set(k, []);
+      byBhk.get(k).push(u);
+    }
+    // The API sorts units by BHK then price, so each list's first unit is its cheapest.
+    return [...byBhk.entries()].map(([bhk, list]) => ({ bhk, list, from: list[0].priceMin || list[0].price || "" }));
+  }, [units]);
+  // Picking a BHK or a size swaps the page to that unit (its price, area, photos, enquiry...).
+  const pickUnit = (u) => {
+    if (!p || u.id === p.id) return;
+    navigation.setParams({ id: u.id, preview: { ...p, ...u, galleryImages: u.image ? [u.image] : p.galleryImages } });
+  };
   const [tab, setTab] = useState("overview");
   const [aboutOpen, setAboutOpen] = useState(false);
   const [rowW, setRowW] = useState(0);
@@ -423,7 +454,7 @@ export default function PropertyDetailsScreen({ navigation, route }) {
   const open = (url) => openExternal(url, { onError: (message) => toast.show(message, "error") });
   const share = () =>
     Share.share({
-      message: `${p.title}${p.price ? ` · ${p.price}` : ""}${p.city ? ` · ${p.city}` : ""}\n${propertyWebUrl(p.id)}`.trim(),
+      message: `${listingName(p)}${p.price ? ` · ${p.price}` : ""}${p.city ? ` · ${p.city}` : ""}\n${propertyWebUrl(p.id)}`.trim(),
     }).catch(() => {});
 
   const contact = () => {
@@ -431,7 +462,7 @@ export default function PropertyDetailsScreen({ navigation, route }) {
       openLoginPrompt({
         reason: "enquiry",
         title: "Sign In to Enquire",
-        message: `Please sign in to send an enquiry for ${p.title || "this property"}.`,
+        message: `Please sign in to send an enquiry for ${listingName(p) || "this property"}.`,
       });
       return;
     }
@@ -441,7 +472,7 @@ export default function PropertyDetailsScreen({ navigation, route }) {
   const send = async () => {
     setSending(true);
     try {
-      await api.enquire(p.id, `I'm interested in ${p.title}. Please contact me.`, user?.name);
+      await api.enquire(p.id, `I'm interested in ${listingName(p)}. Please contact me.`, user?.name);
       setSent(true);
       tick.setValue(0);
       Animated.spring(tick, { toValue: 1, friction: 5, useNativeDriver: true }).start();
@@ -478,17 +509,20 @@ export default function PropertyDetailsScreen({ navigation, route }) {
   // The opening card knows sale / rent from its search; otherwise fall back to the listing badge.
   const tag = route.params?.tag || badgeFor(p);
   const isRent = tag === "For Rent";
-  const price = p.priceMin ? `${p.priceMin} – ${p.price}` : p.price;
+  // Sale prices read "Starting from ₹X* onwards": the cheapest unit of the selected BHK when the
+  // project has several, else the listing's own lowest price. Rent shows the exact monthly rent.
+  const curConfig = configs.find((c) => c.bhk === (p.bhk || ""));
+  const price = isRent ? p.price : (units?.length > 1 && curConfig?.from) || fromPrice(p);
   const inCompare = cmp.has(p.id);
   const allAmenities = [...new Set([...(p.amenities || []), ...(p.facilities || []), ...(p.security || [])])];
   const about = p.description || p.longDescription;
   const stats = [
-    p.bhk && { icon: "bed-outline", text: `${p.bhk} Beds` },
+    p.bhk && { icon: "bed-outline", text: isRk(p.bhk) ? "1 RK" : `${p.bhk} Beds` },
     p.bathrooms && { icon: "water-outline", text: `${p.bathrooms} Baths` },
     p.area && { icon: "resize-outline", text: p.area },
   ].filter(Boolean);
   const facts = [
-    ["BHK", p.bhk && `${p.bhk} BHK`],
+    ["BHK", bhkLabel(p.bhk)],
     ["Area", p.area],
     ["Type", p.propertyType],
     ["Possession", p.possessionStatus],
@@ -556,15 +590,65 @@ export default function PropertyDetailsScreen({ navigation, route }) {
               </View>
             ) : null}
             <View style={styles.priceRow}>
-              {price ? (
+              {price && isRent ? (
                 <Text style={styles.price} numberOfLines={1}>
                   {price}
-                  {isRent ? <Text style={styles.perMonth}> /month</Text> : null}
+                  <Text style={styles.perMonth}> /month</Text>
                 </Text>
+              ) : price ? (
+                <PriceFrom value={price} style={styles.price} labelStyle={styles.priceLabel} />
               ) : (
                 <Text style={styles.poa}>Price on request</Text>
               )}
             </View>
+            {/* Configurations: one chip per BHK (with its starting price); a BHK sold in several
+                sizes gets a second row to pick the exact unit. */}
+            {units?.length > 1 ? (
+              <View style={styles.configs}>
+                <Text style={styles.configTitle}>Configurations</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.configRow}>
+                  {configs.map((c) => {
+                    const on = c === curConfig;
+                    return (
+                      <PressableScale
+                        key={c.bhk || "other"}
+                        onPress={() => pickUnit(on ? p : c.list[0])}
+                        to={0.95}
+                        style={[styles.configChip, on && styles.configChipOn]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: on }}
+                        accessibilityLabel={`${c.bhk ? bhkLabel(c.bhk) : "Other"}${c.from ? `, from ${c.from}` : ""}`}
+                      >
+                        <Text style={[styles.configBhk, on && styles.configTextOn]}>{c.bhk ? bhkLabel(c.bhk) : "Other"}</Text>
+                        {c.from ? <Text style={[styles.configFrom, on && styles.configTextOn]}>{`from ${c.from}`}</Text> : null}
+                      </PressableScale>
+                    );
+                  })}
+                </ScrollView>
+                {curConfig && curConfig.list.length > 1 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.configRow, { marginTop: 8 }]}>
+                    {curConfig.list.map((u) => {
+                      const on = u.id === p.id;
+                      const exact = u.priceMin ? `${u.priceMin} – ${u.price}` : u.price;
+                      return (
+                        <PressableScale
+                          key={u.id}
+                          onPress={() => pickUnit(u)}
+                          to={0.95}
+                          style={[styles.sizeChip, on && styles.sizeChipOn]}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: on }}
+                          accessibilityLabel={[u.area, exact].filter(Boolean).join(", ")}
+                        >
+                          <Text style={[styles.sizeArea, on && styles.sizeTextOn]}>{u.area || "Size n/a"}</Text>
+                          {exact ? <Text style={[styles.sizePrice, on && styles.sizeTextOn]}>{exact}</Text> : null}
+                        </PressableScale>
+                      );
+                    })}
+                  </ScrollView>
+                ) : null}
+              </View>
+            ) : null}
             {p.rating?.count ? (
               <View style={styles.rateRow}>
                 <Ionicons name="star" size={13} color={brand.goldBright} />
@@ -826,7 +910,7 @@ export default function PropertyDetailsScreen({ navigation, route }) {
           </View>
         ) : (
           <>
-            <Text style={styles.enqFor} numberOfLines={1}>{p.title}</Text>
+            <Text style={styles.enqFor} numberOfLines={1}>{listingName(p)}</Text>
             <Text style={styles.enqNote}>We will share your mobile number (+91 {user?.phone}) with the owner / project team.</Text>
             <Button title="Send enquiry" onPress={send} loading={sending} style={{ marginTop: 14 }} />
           </>
@@ -850,7 +934,7 @@ const styles = StyleSheet.create({
   dotOn: { position: "absolute", top: 0, left: 0, width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: colors.white },
   solidHead: { position: "absolute", top: 0, left: 0, right: 0, justifyContent: "center", paddingHorizontal: 120, backgroundColor: colors.white, ...shadow.card },
   solidTitle: { fontSize: 15, fontWeight: "800", color: brand.ink, textAlign: "center" },
-  count: { position: "absolute", right: 16, bottom: 32, flexDirection: "row", gap: 5, alignItems: "center", backgroundColor: "rgba(15, 8, 36, 0.6)", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  count: { position: "absolute", right: 16, bottom: 32, flexDirection: "row", gap: 5, alignItems: "center", backgroundColor: "rgba(8, 15, 36, 0.6)", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   countText: { color: colors.white, fontSize: 11.5, fontWeight: "700" },
   pending: { flexDirection: "row", gap: 8, alignItems: "center", backgroundColor: brand.lavender, borderRadius: radius.md, padding: 12, marginBottom: 10 },
   pendingText: { flex: 1, color: colors.text, fontSize: 12.5, fontWeight: "600" },
@@ -864,6 +948,20 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10 },
   price: { flex: 1, fontSize: 24, fontWeight: "800", color: brand.violet },
   perMonth: { fontSize: 14, fontWeight: "700", color: brand.inkSoft },
+  priceLabel: { fontSize: 13.5, fontWeight: "600", color: brand.inkSoft },
+  configs: { marginTop: 14 },
+  configTitle: { fontSize: 13, fontWeight: "800", color: brand.ink, marginBottom: 8 },
+  configRow: { gap: 8, paddingRight: 4 },
+  configChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.lg, borderWidth: 1.2, borderColor: "#E3E9F2", backgroundColor: colors.white },
+  configChipOn: { borderColor: brand.violet, backgroundColor: brand.violet },
+  configBhk: { fontSize: 14, fontWeight: "800", color: brand.ink },
+  configFrom: { fontSize: 11.5, fontWeight: "600", color: brand.inkSoft, marginTop: 1 },
+  configTextOn: { color: colors.white },
+  sizeChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.md, borderWidth: 1, borderColor: "#E3E9F2", backgroundColor: "#F7F9FC" },
+  sizeChipOn: { borderColor: brand.violet, backgroundColor: "#EAF0FF" },
+  sizeArea: { fontSize: 12.5, fontWeight: "700", color: brand.ink },
+  sizePrice: { fontSize: 11.5, fontWeight: "600", color: brand.inkSoft, marginTop: 1 },
+  sizeTextOn: { color: brand.violet },
   poa: { flex: 1, fontSize: 17, fontWeight: "700", color: brand.inkSoft },
   rateRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6 },
   rateText: { fontSize: 12.5, fontWeight: "700", color: brand.ink },

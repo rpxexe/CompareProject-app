@@ -4,7 +4,7 @@
 // Bump VERSION whenever compute() changes so the sync job rewrites every listing.
 const { numericValue, firstString } = require('./property');
 
-const VERSION = 5;
+const VERSION = 6; // 6: an RK ("1RK", "1 RK") is stored as bhk 0, not 1
 const FIELD = 'filterFields';
 
 const AREA_TO_SQFT = { sqft: 1, sqm: 10.7639, sqyd: 9, acre: 43560, hectare: 107639 };
@@ -194,7 +194,8 @@ function compute(doc) {
     ...typeOf(p),
     city: lower(p.city) || lower(loc.city),
     price: price > 0 ? price : null,
-    bhk: intOrNull(numericValue(bhkRaw)),
+    // An RK (one room + kitchen) has no separate bedroom: bhk 0, so the "1 RK" filter finds it.
+    bhk: /rk/i.test(String(bhkRaw ?? '')) ? 0 : intOrNull(numericValue(bhkRaw)),
     bathrooms: intOrNull(p.bathrooms ?? p.bathroom),
     areaSqft: toSqft(numericValue(area.value ?? area), area.unit),
     furnishing: furnishingKey(p.furnishing),

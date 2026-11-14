@@ -5,6 +5,7 @@ import { api } from "../../services/api";
 import { getSearchHistory, removeSearchHistory, subscribeSearchHistory } from "../../services/historyService";
 import { brand, colors, radius } from "../../theme";
 import Text from "../AppText";
+import { listingName } from "../../utils/format";
 
 const MIN_CHARS = 2;
 const PER_SECTION = 4;
@@ -52,7 +53,8 @@ export default function SearchSuggestions({ text, context, onSearchText, onPickR
         api.locations({ search: typed, limit: PER_SECTION }).then((r) => r?.locations || []).catch(() => []),
         api
           .properties({ context, search: typed, limit: 12, sort: "relevance" }, { signal: ctrl.signal })
-          .then((r) => uniqueBy((r?.items || []).filter((p) => p.title), (p) => p.title.toLowerCase()).slice(0, PER_SECTION))
+          // One row per project (several listings often share one), named by project.
+          .then((r) => uniqueBy((r?.items || []).filter((p) => listingName(p)), (p) => listingName(p).toLowerCase()).slice(0, PER_SECTION))
           .catch(() => []),
         loadDevelopers().then((all) => all.filter((d) => d.toLowerCase().includes(q)).slice(0, PER_SECTION)),
       ]);
@@ -113,10 +115,10 @@ export default function SearchSuggestions({ text, context, onSearchText, onPickR
             <Row
               key={p.id}
               icon="business-outline"
-              title={p.title}
+              title={listingName(p)}
               sub={[p.locality, p.city].filter(Boolean).join(", ")}
               match={typed}
-              onPress={() => onPickProject(p.title)}
+              onPress={() => onPickProject(listingName(p))}
             />
           ))}
           {found.developers.length ? <Text style={styles.section}>Developers</Text> : null}

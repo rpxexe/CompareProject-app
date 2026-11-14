@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { bhkLabel } from "../utils/format";
 
 const SEARCH_HISTORY_KEY = "cp_search_history";
 const MAX_SEARCH_HISTORY = 10;
@@ -60,12 +61,12 @@ export async function addSearchHistory(item) {
   try {
     const existing = await getSearchHistory();
     // Check duplicate by label
-    const label = [query, locality, city, propertyType, bhk ? `${bhk} BHK` : ""]
+    const label = [query, locality, city, propertyType, bhkLabel(bhk)]
       .filter(Boolean)
       .join(" · ");
 
     const filtered = existing.filter((it) => {
-      const itLabel = [it.query, it.locality, it.city, it.propertyType, it.bhk ? `${it.bhk} BHK` : ""]
+      const itLabel = [it.query, it.locality, it.city, it.propertyType, bhkLabel(it.bhk)]
         .filter(Boolean)
         .join(" · ");
       return itLabel.toLowerCase() !== label.toLowerCase();
