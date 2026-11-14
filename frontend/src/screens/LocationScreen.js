@@ -129,7 +129,13 @@ export default function LocationScreen({ navigation }) {
     try {
       const result = await fetchCurrentLocation();
       if (result && (result.fullAddress || result.exactLocation || result.city)) {
-        remember({ full: result.fullAddress || result.exactLocation || result.city, city: result.city || "", title: result.locationTitle || result.city || "" });
+        remember({
+          full: result.fullAddress || result.exactLocation || result.city,
+          city: result.city || "",
+          title: result.locationTitle || result.city || "",
+          lat: result.latitude,
+          lng: result.longitude,
+        });
         navigation.goBack();
       } else {
         setLocationError("Couldn't detect your address. Try searching instead.");
@@ -141,15 +147,21 @@ export default function LocationScreen({ navigation }) {
     }
   };
 
-  const pick = (full, c, title) => {
+  // `coords` ({ lat, lng }) when the place's position is known; searches then list nearby properties first.
+  const pick = (full, c, title, coords) => {
     Keyboard.dismiss();
-    remember({ full, city: c, title });
-    setLocation(full, c, title);
+    remember({ full, city: c, title, lat: coords?.lat, lng: coords?.lng });
+    setLocation(full, c, title, coords);
     navigation.goBack();
   };
   const pickPlace = (item) =>
-    pick(item.fullAddress || [item.title, item.subtitle].filter(Boolean).join(", "), item.city || "", item.locality || item.title || "");
-  const pickRecent = (r) => pick(r.full, r.city, r.title);
+    pick(
+      item.fullAddress || [item.title, item.subtitle].filter(Boolean).join(", "),
+      item.city || "",
+      item.locality || item.title || "",
+      { lat: item.latitude, lng: item.longitude },
+    );
+  const pickRecent = (r) => pick(r.full, r.city, r.title, { lat: r.lat, lng: r.lng });
   const isCurrentRecent = (r) => exactLocation === r.full || fullAddress === r.full;
   const pickLocality = (item) =>
     pick(item.formatted || [item.locality, item.city].filter(Boolean).join(", "), item.city || item.locality, item.locality || item.city);

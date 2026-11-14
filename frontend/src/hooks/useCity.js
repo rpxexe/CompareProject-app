@@ -1,11 +1,73 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useState } from "react";
+import * as Location from "expo-location";
 import { getCurrentUserLocation } from "../services/locationService";
 
 const KEY = "cp_city";
 const EXACT_KEY = "cp_exact_location";
 const TITLE_KEY = "cp_location_title";
 const CHOICE_KEY = "cp_city_choice"; // 'all' when user explicitly chooses 'All locations'
+const COORDS_KEY = "cp_location_coords"; // {lat,lng} of the chosen / detected location
+const SOURCE_KEY = "cp_location_source"; // "manual" when the person picked the place themselves
+
+// Opening the app (or coming back to it) re-detects the location, at most this often.
+const REFRESH_EVERY_MS = 10 * 60 * 1000;
+let lastDetectedAt = 0;
+
+// Whether to quietly re-detect the current location now: location access is already granted
+// (this never prompts), nothing is detecting, it wasn't just done, and the person hasn't picked a
+// place themselves (a picked place is kept until they change it).
+export async function shouldRefreshLocation() {
+  if (globalDetecting || Date.now() - lastDetectedAt < REFRESH_EVERY_MS) return false;
+  try {
+    if ((await AsyncStorage.getItem(SOURCE_KEY)) === "manual") return false;
+    const { status } = await Location.getForegroundPermissionsAsync();
+    return status === "granted";
+  } catch {
+    return false;
+  }
+}
+
+// Position of the chosen location, so searches can list nearby properties first.
+let globalCoords = null;
+let coordsLoaded = false;
+const coordsOf = (lat, lng) => {
+  const a = Number(lat);
+  const b = Number(lng);
+  return Number.isFinite(a) && Number.isFinite(b) && !(a === 0 && b === 0) ? { lat: a, lng: b } : null;
+};
+function saveCoords(coords) {
+  globalCoords = coords || null;
+  coordsLoaded = true;
+  if (globalCoords) AsyncStorage.setItem(COORDS_KEY, JSON.stringify(globalCoords)).catch(() => {});
+  else AsyncStorage.removeItem(COORDS_KEY).catch(() => {});
+}
+
+// Where "nearby" is measured from for a search: the chosen / detected location, else the phone's
+// last known position when location access is already granted (never prompts). Null if neither.
+export async function getSearchOrigin() {
+  if (!coordsLoaded) {
+    try {
+      const saved = JSON.parse((await AsyncStorage.getItem(COORDS_KEY)) || "null");
+      if (!coordsLoaded) globalCoords = coordsOf(saved?.lat, saved?.lng);
+    } catch {
+      // unreadable: fall through to the phone's position
+    }
+    coordsLoaded = true;
+  }
+  if (globalCoords) return globalCoords;
+  try {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    if (status !== "granted") return null;
+    const last = await Promise.race([
+      Location.getLastKnownPositionAsync({ maxAge: 60 * 60 * 1000 }),
+      new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
+    ]);
+    return last ? coordsOf(last.coords.latitude, last.coords.longitude) : null;
+  } catch {
+    return null;
+  }
+}
 
 // Shared in-memory listeners so when LocationScreen updates location, HomeScreen immediately re-renders!
 const listeners = new Set();
@@ -25,6 +87,9 @@ export function resetCityState() {
   globalExactLocation = "";
   globalFullAddress = "";
   globalLocationTitle = "";
+  globalCoords = null;
+  coordsLoaded = false;
+  lastDetectedAt = 0;
   notifyListeners({ city: "", exactLocation: "", fullAddress: "", locationTitle: "" });
 }
 
@@ -50,16 +115,19 @@ export function useCity(availableCities = []) {
     };
   }, []);
 
-  // Fetch live current location
+  // Fetch live current location. `gpsOnly` (silent refreshes): keep the current location unless a
+  // real GPS fix came back, so a weak signal never swaps the locality for a rough IP-based city.
   const fetchCurrentLocation = useCallback(
-    async (citiesToMatch = availableCities) => {
+    async (citiesToMatch = availableCities, { gpsOnly = false } = {}) => {
       globalDetecting = true;
       setDetectingLocation(true);
       notifyListeners({ detectingLocation: true });
 
       try {
-        const result = await getCurrentUserLocation(citiesToMatch);
+        const result = await getCurrentUserLocation(citiesToMatch, !gpsOnly);
+        if (gpsOnly && result?.source !== "gps") return null;
         if (result && (result.city || result.exactLocation || result.fullAddress)) {
+          if (result.source === "gps") lastDetectedAt = Date.now();
           const newCity = result.city || "";
           const newFull = result.fullAddress || result.exactLocation || result.city || "";
           const newTitle = result.title || (newFull ? newFull.split(",")[0].trim() : newCity);
@@ -68,6 +136,7 @@ export function useCity(availableCities = []) {
           globalExactLocation = newFull;
           globalFullAddress = newFull;
           globalLocationTitle = newTitle;
+          saveCoords(coordsOf(result.latitude, result.longitude));
 
           setCityState(newCity);
           setExactLocationState(newFull);
@@ -79,6 +148,7 @@ export function useCity(availableCities = []) {
             AsyncStorage.setItem(EXACT_KEY, newFull),
             AsyncStorage.setItem(TITLE_KEY, newTitle),
             AsyncStorage.removeItem(CHOICE_KEY),
+            AsyncStorage.removeItem(SOURCE_KEY),
           ]);
 
           notifyListeners({
@@ -89,7 +159,14 @@ export function useCity(availableCities = []) {
             detectingLocation: false,
           });
 
-          return { city: newCity, exactLocation: newFull, fullAddress: newFull, locationTitle: newTitle };
+          return {
+            city: newCity,
+            exactLocation: newFull,
+            fullAddress: newFull,
+            locationTitle: newTitle,
+            latitude: globalCoords?.lat,
+            longitude: globalCoords?.lng,
+          };
         }
       } catch (err) {
         console.log("[useCity] Location auto-detect error:", err?.message);
@@ -163,11 +240,13 @@ export function useCity(availableCities = []) {
             const newCity = res.city || "";
             const newFull = res.fullAddress || res.exactLocation || res.city || "";
             const newTitle = res.title || (newFull ? newFull.split(",")[0].trim() : newCity);
+            if (res.source === "gps") lastDetectedAt = Date.now();
 
             globalCity = newCity;
             globalExactLocation = newFull;
             globalFullAddress = newFull;
             globalLocationTitle = newTitle;
+            saveCoords(coordsOf(res.latitude, res.longitude));
 
             setCityState(newCity);
             setExactLocationState(newFull);
@@ -217,6 +296,7 @@ export function useCity(availableCities = []) {
     globalExactLocation = trimmed;
     globalFullAddress = trimmed;
     globalLocationTitle = trimmed;
+    saveCoords(null);
 
     setCityState(trimmed);
     setExactLocationState(trimmed);
@@ -233,6 +313,7 @@ export function useCity(availableCities = []) {
       AsyncStorage.removeItem(EXACT_KEY).catch(() => {});
       AsyncStorage.removeItem(TITLE_KEY).catch(() => {});
       AsyncStorage.setItem(CHOICE_KEY, "all").catch(() => {});
+      AsyncStorage.setItem(SOURCE_KEY, "manual").catch(() => {}); // chose "All locations"
     }
     notifyListeners({
       city: trimmed,
@@ -242,7 +323,8 @@ export function useCity(availableCities = []) {
     });
   }, []);
 
-  const setLocation = useCallback((exactLoc, cityName, title) => {
+  // `coords` ({ lat, lng }) when the picked place has a known position.
+  const setLocation = useCallback((exactLoc, cityName, title, coords) => {
     const trimmedExact = (exactLoc || "").trim();
     let trimmedCity = (cityName || "").trim();
 
@@ -258,6 +340,9 @@ export function useCity(availableCities = []) {
     globalExactLocation = trimmedExact;
     globalFullAddress = trimmedExact;
     globalLocationTitle = trimmedTitle;
+    saveCoords(trimmedExact ? coordsOf(coords?.lat, coords?.lng) : null);
+    // Picked by hand: opening the app keeps it instead of re-detecting.
+    AsyncStorage.setItem(SOURCE_KEY, "manual").catch(() => {});
 
     setCityState(trimmedCity);
     setExactLocationState(trimmedExact);

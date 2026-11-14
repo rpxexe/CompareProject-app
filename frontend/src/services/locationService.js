@@ -329,14 +329,104 @@ export async function checkLocationPermission() {
   }
 }
 
-// A fresh fix can stall indoors or while the phone is stationary, so wait at most 12s and then
-// settle for a recent last-known position.
+// How close a fix must be (metres) to stop waiting for a better one. A few hundred metres is
+// already the next locality in an Indian city, so a rough network fix isn't good enough.
+const GOOD_FIX_M = 40;
+const FIX_WAIT_MS = 10000;
+const accuracyOf = (pos) => (Number.isFinite(pos?.coords?.accuracy) ? pos.coords.accuracy : Infinity);
+const withTimeout = (promise, ms) =>
+  Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
+
+// The most precise position the phone can give within FIX_WAIT_MS. GPS fixes sharpen over a few
+// seconds (the first is often a coarse Wi-Fi / cell estimate), so readings are watched and the
+// best kept, stopping early once one is within GOOD_FIX_M. If nothing arrives (indoors, GPS
+// stalled), a last-known position is used only if it is recent and reasonably precise.
 async function currentPosition() {
-  const fresh = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-  const pos = await Promise.race([fresh, new Promise((resolve) => setTimeout(() => resolve(null), 12000))]);
-  if (pos) return pos;
-  const last = await Location.getLastKnownPositionAsync({ maxAge: 30 * 60 * 1000 }).catch(() => null);
-  return last || fresh;
+  let best = null;
+  let sub = null;
+  let stopped = false;
+  await new Promise((resolve) => {
+    const finish = () => {
+      stopped = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(finish, FIX_WAIT_MS);
+    Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 1000, distanceInterval: 0 },
+      (pos) => {
+        if (accuracyOf(pos) < accuracyOf(best)) best = pos;
+        if (accuracyOf(pos) <= GOOD_FIX_M) finish();
+      },
+    )
+      .then((s) => {
+        sub = s;
+        if (stopped) s.remove();
+      })
+      .catch(finish);
+  });
+  sub?.remove();
+  if (best) return best;
+
+  const last = await Location.getLastKnownPositionAsync({ maxAge: 2 * 60 * 1000, requiredAccuracy: 200 }).catch(() => null);
+  if (last) return last;
+  const fresh = await withTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }), 6000).catch(() => null);
+  if (fresh) return fresh;
+  throw new Error("Couldn't get a GPS fix");
+}
+
+// The phone's own geocoder (Google's on Android, Apple's on iOS). Its `district` is the
+// sub-locality the point actually lies in ("Borivali West"), which is more reliable for Indian
+// cities than OpenStreetMap: where OSM has no locality boundaries, Nominatim names the nearest
+// locality *point*, which is often the neighbouring locality.
+async function reverseGeocodeNative(latitude, longitude) {
+  try {
+    const [a] = (await withTimeout(Location.reverseGeocodeAsync({ latitude, longitude }), 6000)) || [];
+    if (!a) return null;
+    const locality = (a.district || "").trim();
+    const road = (a.street || "").trim();
+    const city = cityFromAdminName(a.city || a.subregion || "").trim();
+    const state = (a.region || "").trim();
+    const postcode = (a.postalCode || "").trim();
+    const subtitle = [city, state, postcode].filter(Boolean).join(", ");
+    return {
+      title: locality || road || city,
+      subtitle,
+      fullAddress: [a.name && a.name !== road ? a.name : "", road, locality, subtitle].filter(Boolean).join(", "),
+      city,
+      locality,
+      state,
+      postcode,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Same place name ignoring case, spacing and punctuation ("Borivali (W)" vs "borivali w").
+const samePlace = (a, b) => {
+  const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return !!norm(a) && norm(a) === norm(b);
+};
+
+// Nominatim gives the full street address; the phone's geocoder decides the locality and,
+// when Nominatim has none, the city.
+function mergeAddresses(osm, native) {
+  if (!osm?.fullAddress) return native?.fullAddress || native?.city ? native : osm;
+  if (!native) return osm;
+  const merged = { ...osm };
+  if (native.locality) {
+    merged.locality = native.locality;
+    merged.title = native.locality;
+    // Keep the street address, but make sure it names the right locality.
+    if (!merged.fullAddress.toLowerCase().includes(native.locality.toLowerCase())) {
+      const parts = merged.fullAddress.split(",").map((p) => p.trim()).filter((p) => !samePlace(p, osm.locality));
+      merged.fullAddress = [parts[0], native.locality, ...parts.slice(1)].filter(Boolean).join(", ");
+    }
+  }
+  if (!merged.city && native.city) merged.city = native.city;
+  if (!merged.postcode && native.postcode) merged.postcode = native.postcode;
+  return merged;
 }
 
 /**
@@ -347,64 +437,28 @@ export async function getCurrentUserLocation(availableCities = [], requestIfMiss
   let locationResult = null;
 
   try {
-    let { status } = await Location.getForegroundPermissionsAsync();
+    const perm = await Location.getForegroundPermissionsAsync();
+    let { status } = perm;
 
-    // Only prompt user if not already granted AND requestIfMissing is true
-    if (status !== "granted" && requestIfMissing) {
-      const req = await Location.requestForegroundPermissionsAsync();
-      status = req.status;
+    // Only prompt user if not already granted AND requestIfMissing is true. Android 12+ also lets
+    // people grant only "Approximate" location (accurate to ~2 km, i.e. the wrong locality): asking
+    // again shows Android's "Change to precise location" dialog.
+    const approximateOnly = status === "granted" && perm.android?.accuracy === "coarse";
+    if ((status !== "granted" || approximateOnly) && requestIfMissing) {
+      const req = await Location.requestForegroundPermissionsAsync().catch(() => perm);
+      status = req.status === "granted" ? "granted" : status;
     }
 
     if (status === "granted") {
       const pos = await currentPosition();
       const { latitude, longitude } = pos.coords;
 
-      // Reverse geocode via Nominatim for full address
-      let reverseResult = await reverseGeocodeWithNominatim(latitude, longitude);
-
-      // Nominatim answered but had no city for this spot: take the city from the phone's geocoder.
-      if (reverseResult?.fullAddress && !reverseResult.city) {
-        try {
-          const [a] = await Location.reverseGeocodeAsync({ latitude, longitude });
-          const city = cityFromAdminName(a?.city || a?.subregion || "");
-          if (city) reverseResult = { ...reverseResult, city };
-        } catch {
-          // fall through to the IP lookup below
-        }
-      }
-
-      // If Nominatim failed, try native expo reverse geocode
-      if (!reverseResult || !reverseResult.fullAddress) {
-        try {
-          const addresses = await Location.reverseGeocodeAsync({
-            latitude,
-            longitude,
-          });
-          if (addresses && addresses.length > 0) {
-            const a = addresses[0];
-            const road = a.street || a.name || "";
-            const suburb = a.subregion || a.district || "";
-            const city = a.city || a.subregion || a.district || "";
-            const state = a.region || "";
-            const postcode = a.postalCode || "";
-            const title = (suburb || road || city).trim();
-            const subtitle = [city, state, postcode].filter(Boolean).join(", ");
-            const full = [road, suburb, subtitle].filter(Boolean).join(", ");
-
-            reverseResult = {
-              title,
-              subtitle,
-              fullAddress: full,
-              city,
-              locality: (suburb || road || city).trim(),
-              state,
-              postcode,
-            };
-          }
-        } catch {
-          // ignore
-        }
-      }
+      // Street address from Nominatim and the locality from the phone's geocoder, in parallel.
+      const [osm, native] = await Promise.all([
+        reverseGeocodeWithNominatim(latitude, longitude),
+        reverseGeocodeNative(latitude, longitude),
+      ]);
+      const reverseResult = mergeAddresses(osm, native);
 
       if (reverseResult && (reverseResult.fullAddress || reverseResult.city)) {
         const matchedCity = matchWithAvailableCities(

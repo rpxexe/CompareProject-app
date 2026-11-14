@@ -26,6 +26,7 @@ import { getContext, getFilter } from "../utils/filterConfig";
 import { activeFilterIds, chipLabel, fromQueryParams, toQueryParams, withoutEach } from "../utils/filterState";
 import Text from "../components/AppText";
 import { useAuth } from "../context/AuthContext";
+import { getSearchOrigin } from "../hooks/useCity";
 
 const PAGE_SIZE = 12;
 const MAX_SUGGESTIONS = 4;
@@ -77,7 +78,28 @@ export default function SearchScreen({ navigation, route }) {
   const openFilters = () =>
     navigation.navigate("SearchFilters", { ...params, returnTo: "Search" });
 
-  const listParams = useMemo(() => ({ ...params, limit: PAGE_SIZE }), [params]);
+  // Where the person is (chosen / detected location): results then come nearest first.
+  // undefined while it's being looked up, null when unknown.
+  const [origin, setOrigin] = useState(undefined);
+  useEffect(() => {
+    let active = true;
+    getSearchOrigin()
+      .catch(() => null)
+      .then((o) => active && setOrigin(o || null));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // ~100 m precision is plenty for ranking and keeps the exact position off the wire.
+  const listParams = useMemo(
+    () => ({
+      ...params,
+      limit: PAGE_SIZE,
+      ...(origin ? { lat: origin.lat.toFixed(3), lng: origin.lng.toFixed(3) } : {}),
+    }),
+    [params, origin],
+  );
 
   // Page 1 replaces the list; later pages append. Every page uses the same committed filters,
   // and a newer request aborts the older one so results never arrive out of order.
@@ -106,7 +128,7 @@ export default function SearchScreen({ navigation, route }) {
   useEffect(() => () => inflight.current?.abort(), []);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || origin === undefined) return;
     load(1, false);
     const { search, city, locality, propertyType } = fs.query;
     const typeLabel = propertyType || chipLabel(fs, config, "propertyType") || "";
@@ -114,7 +136,7 @@ export default function SearchScreen({ navigation, route }) {
     if (search || city || locality || typeLabel || bhk) {
       addSearchHistory({ query: search, city, locality, propertyType: typeLabel, bhk });
     }
-  }, [ready, load]); // eslint-disable-line react-hooks/exhaustive-deps -- `load` changes exactly when the filters do
+  }, [ready, origin, load]); // eslint-disable-line react-hooks/exhaustive-deps -- `load` changes exactly when the filters do
 
   // Empty results: count what each single removal would bring back, suggest the biggest wins.
   const removals = useMemo(

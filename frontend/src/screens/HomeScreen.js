@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Image, RefreshControl, StyleSheet, View, useWindowDimensions } from "react-native";
+import { AppState, FlatList, Image, RefreshControl, StyleSheet, View, useWindowDimensions } from "react-native";
 import Re, {
   Easing,
   useAnimatedStyle,
@@ -26,7 +26,7 @@ import { ErrorState, LoadingState } from "../components/StateViews";
 import { useAuth } from "../context/AuthContext";
 import { useLocationAccess } from "../context/LocationAccessContext";
 import { useApi } from "../hooks/useApi";
-import { useCity } from "../hooks/useCity";
+import { shouldRefreshLocation, useCity } from "../hooks/useCity";
 import { api } from "../services/api";
 import { bhkLabel, bhkSummary, formatInr, fromPrice, listingName as cardName, timeAgo } from "../utils/format";
 import PriceFrom from "../components/PriceFrom";
@@ -273,12 +273,24 @@ export default function HomeScreen({ navigation }) {
 
   const cardW = Math.min(Math.round((W - 40) / 1.55), 250);
 
-  // Location skipped or blocked at onboarding (or GPS switched off): ask once per session.
+  // On opening the app: location skipped or blocked at onboarding (or GPS switched off) -> ask once
+  // per session; access already on -> quietly re-detect the current location. Coming back to the
+  // app later re-detects too (at most every few minutes; a place picked by hand is kept).
   useEffect(() => {
+    const refresh = async (justGranted) => {
+      if (justGranted) return fetchCurrentLocation().catch(() => {});
+      if (await shouldRefreshLocation()) fetchCurrentLocation(undefined, { gpsOnly: true }).catch(() => {});
+    };
     const t = setTimeout(() => {
-      promptOnLaunch().then((granted) => granted && fetchCurrentLocation().catch(() => {}));
+      promptOnLaunch().then(refresh);
     }, 900);
-    return () => clearTimeout(t);
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") refresh(false);
+    });
+    return () => {
+      clearTimeout(t);
+      sub.remove();
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
