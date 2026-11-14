@@ -77,7 +77,7 @@ export default function AuthWelcomeScreen({ navigation, route }) {
               left: W * x - 14,
               height: 120 + (i % 3) * 50,
               backgroundColor:
-                i % 2 ? "rgba(199,125,255,0.4)" : "rgba(166,107,255,0.45)",
+                i % 2 ? "rgba(125, 155, 255, 0.4)" : "rgba(107, 142, 255, 0.45)",
               transform: [
                 {
                   translateY: rise[i].interpolate({

@@ -68,23 +68,23 @@ export default function LoadingStroke({ width, ready, duration = 1700, onComplet
       {/* Soft glow underneath the line (works on Android, where coloured shadows don't). */}
       <View style={[styles.glowTrack, { width }]}>
         <Animated.View style={[StyleSheet.absoluteFill, fillStyle]}>
-          <LinearGradient colors={["rgba(124,44,245,0)", "rgba(178,107,255,0.45)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={["rgba(36, 87, 255, 0)", "rgba(107, 142, 255, 0.45)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
         </Animated.View>
       </View>
       <View style={[styles.track, { width }]}>
         <Animated.View style={[StyleSheet.absoluteFill, fillStyle]}>
-          <LinearGradient colors={["#5F1BD8", "#9B4DFF", "#C99BFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={["#1A44E0", "#4D77FF", "#9BBFFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
         </Animated.View>
       </View>
       <Animated.View style={[styles.head, headStyle]} pointerEvents="none">
         <LinearGradient
-          colors={["rgba(201,155,255,0)", "rgba(201,155,255,0.55)", "rgba(201,155,255,0)"]}
+          colors={["rgba(155, 191, 255, 0)", "rgba(155, 191, 255, 0.55)", "rgba(155, 191, 255, 0)"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.headGlow}
         />
         <LinearGradient
-          colors={["rgba(255,255,255,0)", "#F6ECFF", "rgba(255,255,255,0)"]}
+          colors={["rgba(255,255,255,0)", "#F8FBFC", "rgba(255,255,255,0)"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.headCore}
@@ -101,10 +101,10 @@ const styles = StyleSheet.create({
     height: 2,
     borderRadius: 1,
     overflow: "hidden",
-    backgroundColor: "rgba(178,107,255,0.16)",
+    backgroundColor: "rgba(107, 142, 255, 0.16)",
   },
   glowTrack: { position: "absolute", left: 0, height: 8, borderRadius: 4, overflow: "hidden", opacity: 0.6 },
   head: { position: "absolute", left: 0, width: HEAD, height: 14, justifyContent: "center" },
   headGlow: { position: "absolute", left: 0, right: 0, height: 12, borderRadius: 6 },
-  headCore: { height: 3, borderRadius: 1.5, shadowColor: "#D9B8FF", shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
+  headCore: { height: 3, borderRadius: 1.5, shadowColor: "#E6F0F4", shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
 });

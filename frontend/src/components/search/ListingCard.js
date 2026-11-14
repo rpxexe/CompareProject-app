@@ -10,7 +10,8 @@ import { useCompare } from "../../context/CompareContext";
 import { useEntrance } from "../../hooks/useEntrance";
 import { LinearGradient } from "expo-linear-gradient";
 import { brand, colors, gradients, radius, shadow } from "../../theme";
-import { listingName } from "../../utils/format";
+import { bhkSummary, fromPrice, isRk, listingName } from "../../utils/format";
+import PriceFrom from "../PriceFrom";
 import { Skeleton, SkeletonText } from "../StateViews";
 import Text from "../AppText";
 
@@ -18,9 +19,14 @@ import Text from "../AppText";
 // the right - title, location, price, beds / baths / area, one line of feature chips -
 // with small "Compare" and "Enquire Now" buttons at the bottom. `tag` is the listing status
 // ("For Rent", "For Lease", a project badge; none for sale); rentals get a "/month" price suffix.
+const ENTRANCE_COUNT = 6;
+
 function ListingCard({ property: p, index = 0, tag }) {
   const nav = useNavigation();
+  // Only the first screenful fades in. Cards further down appear as you scroll and must be there
+  // at once: a delayed fade there shows as blank gaps mid-scroll.
   const enter = useEntrance(Math.min(index, 6) * 70, 16);
+  const animate = index < ENTRANCE_COUNT;
   const { isDeveloper } = useAuth();
   const { has, toggle } = useCompare();
   const inCompare = has(p.id);
@@ -29,31 +35,38 @@ function ListingCard({ property: p, index = 0, tag }) {
 
   const name = listingName(p);
   const where = [p.locality, p.city].filter(Boolean).join(", ");
-  const price = p.priceMin ? `${p.priceMin} – ${p.price}` : p.price;
+  const isRent = tag === "For Rent";
+  // Sale cards advertise the project's starting price; rent shows the listing's own monthly rent.
+  const price = isRent ? p.price : fromPrice(p);
+  // A project with several units shows all its BHKs; baths and area differ per unit, so they're
+  // left to the details screen.
+  const multi = (p.projectUnits || 1) > 1;
   const facts = [
-    p.bhk && { icon: "bed-outline", text: `${p.bhk} Beds` },
-    p.bathrooms && { icon: "water-outline", text: `${p.bathrooms} Baths` },
-    p.area && { icon: "resize-outline", text: p.area },
+    multi && p.bhkOptions?.length
+      ? { icon: "bed-outline", text: bhkSummary(p) }
+      : p.bhk && { icon: "bed-outline", text: isRk(p.bhk) ? "1 RK" : `${p.bhk} Beds` },
+    !multi && p.bathrooms && { icon: "water-outline", text: `${p.bathrooms} Baths` },
+    !multi && p.area && { icon: "resize-outline", text: p.area },
   ].filter(Boolean);
   const chips = [
     p.furnishing && { icon: "bed-outline", text: p.furnishing },
     p.parkings && { icon: "car-outline", text: "Parking" },
     ...(p.amenities || []).map((a) => ({ icon: "sparkles-outline", text: a })),
   ].filter(Boolean).slice(0, 2);
-  const isRent = tag === "For Rent";
   const open = () => nav.navigate("PropertyDetails", { id: p.id, preview: p, tag });
 
   return (
-    <Animated.View style={enter}>
+    <Animated.View style={animate ? enter : null}>
       <PressableScale
         onPress={open}
         to={0.98}
         style={styles.card}
         accessibilityRole="button"
-        accessibilityLabel={[name, price, where].filter(Boolean).join(", ")}
+        accessibilityLabel={[name, price && (isRent ? `${price} per month` : `starting from ${price}`), where].filter(Boolean).join(", ")}
       >
         <View style={styles.photo}>
-          <Cover uri={cover} style={StyleSheet.absoluteFill} iconSize={26} />
+          {/* Keyed so a recycled card (FlashList) never keeps the last listing's failed-photo state. */}
+          <Cover key={cover || "none"} uri={cover} style={StyleSheet.absoluteFill} iconSize={26} />
           {tag ? (
             <View style={[styles.tag, isRent && styles.tagRent]}>
               {isRent ? null : <LinearGradient colors={gradients.cta} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
@@ -61,7 +74,8 @@ function ListingCard({ property: p, index = 0, tag }) {
             </View>
           ) : null}
           <View style={styles.heart}>
-            <HeartButton id={p.id} size={14} floating={false} />
+            {/* Keyed by listing so a recycled card does not play the saved/unsaved pop. */}
+            <HeartButton key={p.id} id={p.id} size={14} floating={false} />
           </View>
         </View>
 
@@ -74,11 +88,13 @@ function ListingCard({ property: p, index = 0, tag }) {
             </View>
           ) : null}
 
-          {price ? (
+          {price && isRent ? (
             <Text style={styles.price} numberOfLines={1}>
               {price}
-              {isRent ? <Text style={styles.perMonth}> /month</Text> : null}
+              <Text style={styles.perMonth}> /month</Text>
             </Text>
+          ) : price ? (
+            <PriceFrom value={price} style={styles.price} labelStyle={styles.priceLabel} />
           ) : (
             <Text style={styles.noPrice}>Price on request</Text>
           )}
@@ -191,7 +207,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md + 2,
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: "rgba(124, 44, 245, 0.06)",
+    borderColor: "rgba(36, 87, 255, 0.06)",
     ...shadow.card,
   },
   // Stretches to the details' height.
@@ -217,6 +233,7 @@ const styles = StyleSheet.create({
   where: { flexShrink: 1, fontSize: 11.5, color: brand.inkSoft },
   price: { fontSize: 15.5, fontWeight: "800", color: brand.violet, marginTop: 3 },
   perMonth: { fontSize: 11, fontWeight: "700", color: brand.inkSoft },
+  priceLabel: { fontSize: 11, fontWeight: "600", color: brand.inkSoft },
   noPrice: { fontSize: 12.5, fontWeight: "700", color: brand.inkSoft, marginTop: 3 },
   facts: { flexDirection: "row", flexWrap: "wrap", columnGap: 9, rowGap: 2, marginTop: 3 },
   fact: { flexDirection: "row", alignItems: "center", gap: 3 },
@@ -233,7 +250,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     borderColor: colors.line,
-    backgroundColor: "#FAF8FF",
+    backgroundColor: "#FDFEFE",
   },
   chipText: { flexShrink: 1, fontSize: 10, fontWeight: "600", color: brand.inkSoft },
   // Outlined Compare + gradient Enquire, like the details screen's bottom bar but pocket-sized.

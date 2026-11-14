@@ -1,28 +1,35 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, FlatList, Image, RefreshControl, StyleSheet, View, useWindowDimensions } from "react-native";
+import { FlatList, Image, RefreshControl, StyleSheet, View, useWindowDimensions } from "react-native";
+import Re, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
 import { isReducedMotion } from "../hooks/useReducedMotion";
+import { splashDoneAt, useSplashDone } from "../utils/splashGate";
 import { LinearGradient } from "expo-linear-gradient";
 import { useIsFocused } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import Screen from "../components/Screen";
-import Logo from "../components/Logo";
 import GlassView from "../components/GlassView";
 import HeartButton from "../components/HeartButton";
 import MiniBarChart from "../components/MiniBarChart";
 import MiniLineChart from "../components/MiniLineChart";
 import LoanCalculatorSheet from "../components/LoanCalculatorSheet";
 import PressableScale from "../components/PressableScale";
-import Reveal, { stagger } from "../components/Reveal";
-import RollingPlaceholder from "../components/RollingPlaceholder";
-import HeroRotatingWord from "../components/HeroRotatingWord";
 import { Cover } from "../components/PropertyCard";
+import HomeHero from "../components/home/HomeHero";
+import CompareIcon from "../components/CompareIcon";
 import { ErrorState, LoadingState } from "../components/StateViews";
 import { useAuth } from "../context/AuthContext";
 import { useLocationAccess } from "../context/LocationAccessContext";
 import { useApi } from "../hooks/useApi";
 import { useCity } from "../hooks/useCity";
 import { api } from "../services/api";
-import { formatInr, listingName as cardName } from "../utils/format";
+import { bhkLabel, bhkSummary, formatInr, fromPrice, listingName as cardName, timeAgo } from "../utils/format";
+import PriceFrom from "../components/PriceFrom";
 import {
   clearCompareHistory,
   clearSearchHistory,
@@ -32,6 +39,8 @@ import {
   subscribeSearchHistory,
 } from "../services/historyService";
 import { useCompare } from "../context/CompareContext";
+import { useSaved } from "../context/SavedContext";
+import { useNetwork } from "../context/NetworkContext";
 import BottomSheet from "../components/BottomSheet";
 import { brand, colors, fonts, gradients, radius, surfaces } from "../theme";
 import Text from "../components/AppText";
@@ -39,21 +48,11 @@ import Text from "../components/AppText";
 const HERO_IMAGE = require("../../assets/onboarding_residence.jpg");
 const safe = (p) => p.catch(() => null);
 
-// Rotating last word of the hero headline: "Homes That Fit Your ___".
-const HERO_WORDS = ["Budget", "Lifestyle", "Family", "Commute", "Dreams"];
-
-const QUICK_ACTIONS = [
-  { key: "resume", label: "Resume Search", icon: "play-forward", bg: "#FFE4EE", fg: "#E0457B" },
-  { key: "wishlist", label: "My Wishlist", icon: "heart", bg: "#FFE3E6", fg: "#E5484D" },
-  { key: "compared", label: "Recent Compares", icon: "swap-horizontal", bg: "#E3EEFF", fg: "#3B6FE0" },
-  { key: "recent", label: "Recent Searches", icon: "time", bg: "#EEE6FF", fg: brand.violet },
-];
-
-// Tabs above the search bar; each opens the search form with that context preselected.
-const SEARCH_TABS = [
-  { context: "buy_residential", label: "Buy", icon: "key-outline" },
-  { context: "rent_residential", label: "Rent", icon: "home-outline" },
-  { context: "new_projects", label: "Projects", icon: "business-outline" },
+// Shortcut tiles under the hero; each shows a live count of what it opens.
+const ACTIVITY = [
+  { key: "wishlist", label: "Wishlist", icon: "heart-outline" },
+  { key: "compared", label: "Compares", icon: "compare" }, // drawn with the nav bar's CompareIcon
+  { key: "recent", label: "Searches", icon: "time-outline" },
 ];
 
 // Short axis labels; the chart readout shows the full stage name.
@@ -68,11 +67,47 @@ function stageBadge(p) {
 }
 
 const bhkLine = (p) =>
-  [p.bhk ? `${p.bhk} BHK` : "", p.propertyType ? p.propertyType.replace(/^Flats\/Apartments$/i, "Apartments") : ""]
+  [bhkLabel(p.bhk), p.propertyType ? p.propertyType.replace(/^Flats\/Apartments$/i, "Apartments") : ""]
     .filter(Boolean)
     .join(" ");
 
 const placeLine = (p) => [p.locality, p.city].filter(Boolean).join(", ");
+
+// ---------------------------------------------------------------------------------------------
+// Motion below the hero: each section plays one short intro fade after the splash, then stays put.
+// Nothing moves with scrolling: no parallax and no scroll-linked fades (the hero parallax slid the
+// cards over the search bar, and scroll fades hid sections). Don't bring back JS-driven,
+// per-element springs either: they felt choppy.
+const FADE_START = 900; // ms after the splash goes: just as the hero's search bar lands
+const FADE_STEP = 70; // between sections, in page order
+const FADE_MS = 280;
+// One animated layer per section. `order` is its place on the page: hidden while the splash is up,
+// then fades in on a shared timeline (a section whose data arrives later fades in right away).
+function Fade({ order = 0, style, children }) {
+  const intro = useSplashDone();
+  const reduced = isReducedMotion();
+  const enter = useSharedValue(reduced ? 1 : 0);
+  // Hardware layer only during the intro fade (stops shadow flicker on Android), then dropped so
+  // the rails inside scroll without it.
+  const [layer, setLayer] = useState(!reduced);
+  useEffect(() => {
+    if (!intro || reduced) return undefined;
+    const delay = Math.max(0, splashDoneAt() + FADE_START + order * FADE_STEP - Date.now());
+    enter.value = withDelay(delay, withTiming(1, { duration: FADE_MS, easing: Easing.out(Easing.cubic) }));
+    const t = setTimeout(() => setLayer(false), delay + FADE_MS + 60);
+    return () => clearTimeout(t);
+  }, [intro]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const a = useAnimatedStyle(() => ({
+    opacity: enter.value,
+    transform: [{ translateY: (1 - enter.value) * 8 }],
+  }));
+  return (
+    <Re.View renderToHardwareTextureAndroid={layer} style={[style, a]}>
+      {children}
+    </Re.View>
+  );
+}
 
 function SectionTitle({ title, action, onAction }) {
   return (
@@ -90,32 +125,11 @@ function SectionTitle({ title, action, onAction }) {
   );
 }
 
-// "RERA" seal for the photo's top-left corner: an emerald pill with a white tick disc and a
-// soft glow; a thin sheen glints across it every few seconds.
+// "RERA" seal for the photo's top-left corner: an emerald pill with a white tick disc and a soft glow.
 function ReraTag() {
-  const sheen = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    if (isReducedMotion()) return undefined;
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.delay(900),
-        Animated.timing(sheen, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.delay(3200),
-        Animated.timing(sheen, { toValue: 0, duration: 0, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [sheen]);
   return (
     <View style={styles.rera} accessibilityLabel="RERA approved">
       <LinearGradient colors={["#22D38A", "#0E9F6E", "#0B7A55"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.reraSheen, { transform: [{ translateX: sheen.interpolate({ inputRange: [0, 1], outputRange: [-30, 90] }) }, { rotate: "20deg" }] }]}
-      >
-        <LinearGradient colors={["rgba(255,255,255,0)", "rgba(255,255,255,0.55)", "rgba(255,255,255,0)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
-      </Animated.View>
       <View style={styles.reraTick}>
         <Ionicons name="checkmark" size={11} color="#0B7A55" />
       </View>
@@ -129,6 +143,8 @@ function ReraTag() {
 const FeaturedCard = React.memo(function FeaturedCard({ p, width, onOpen }) {
   const name = cardName(p);
   const place = placeLine(p);
+  const from = fromPrice(p);
+  const multi = (p.projectUnits || 1) > 1;
   const { has, toggle } = useCompare();
   const inCompare = has(p.id);
   return (
@@ -137,7 +153,7 @@ const FeaturedCard = React.memo(function FeaturedCard({ p, width, onOpen }) {
       onPress={() => onOpen(p)}
       style={[styles.fCard, { width }]}
       accessibilityRole="button"
-      accessibilityLabel={[name, p.reraNumber && "RERA registered", p.price, place, p.bhk && `${p.bhk} BHK`, p.area].filter(Boolean).join(", ")}
+      accessibilityLabel={[name, p.reraNumber && "RERA registered", from && `starting from ${from}`, place, bhkSummary(p), !multi && p.area].filter(Boolean).join(", ")}
     >
       <View style={[styles.fImageWrap, { height: Math.round((width - 16) * 0.8) }]}>
         <Cover uri={p.image} style={StyleSheet.absoluteFill} iconSize={32} />
@@ -150,14 +166,15 @@ const FeaturedCard = React.memo(function FeaturedCard({ p, width, onOpen }) {
             {name}
           </Text>
         </View>
-        <Text style={styles.fDesc} numberOfLines={2}>
-          {p.price ? <Text style={styles.fPrice}>{p.price}</Text> : null}
-          {p.price && place ? "  ·  " : ""}
-          {place}
-        </Text>
+        {/* Starting price on its own line, then the place. */}
+        <View style={styles.fDesc}>
+          {from ? <PriceFrom value={from} style={styles.fPrice} labelStyle={styles.fPriceLabel} /> : null}
+          <Text style={styles.fPlace} numberOfLines={1}>{place}</Text>
+        </View>
         <View style={styles.fFoot}>
-          {p.bhk ? <Stat icon="bed-outline" text={`${p.bhk} BHK`} /> : null}
-          {p.area ? <Stat icon="resize-outline" text={p.area} /> : null}
+          {bhkSummary(p) ? <Stat icon="bed-outline" text={bhkSummary(p)} /> : null}
+          {/* Area differs per unit, so a project with several units leaves it to the details. */}
+          {p.area && !multi ? <Stat icon="resize-outline" text={p.area} /> : null}
         </View>
         <View style={styles.fActions}>
           <PressableScale
@@ -204,7 +221,7 @@ function Stat({ icon, text }) {
 const UpcomingCard = React.memo(function UpcomingCard({ p, onOpen }) {
   const badge = stageBadge(p);
   return (
-    <PressableScale to={0.98} onPress={() => onOpen(p)} style={styles.uCard} accessibilityRole="button" accessibilityLabel={`${p.title}, ${badge.text}, ${placeLine(p)}`}>
+    <PressableScale to={0.98} onPress={() => onOpen(p)} style={styles.uCard} accessibilityRole="button" accessibilityLabel={`${cardName(p)}, ${badge.text}, ${placeLine(p)}`}>
       <Cover uri={p.image} style={styles.uImage} iconSize={20} />
       <View style={styles.uBody}>
         <View style={[styles.uBadge, { backgroundColor: badge.bg }]}>
@@ -213,12 +230,12 @@ const UpcomingCard = React.memo(function UpcomingCard({ p, onOpen }) {
           </Text>
         </View>
         <Text style={styles.uTitle} numberOfLines={1}>
-          {p.title}
+          {cardName(p)}
         </Text>
         <Text style={styles.uMeta} numberOfLines={1}>
           {placeLine(p)}
         </Text>
-        {p.bhk ? <Text style={styles.uMeta}>{`${p.bhk} BHK`}</Text> : null}
+        {bhkSummary(p) ? <Text style={styles.uMeta}>{bhkSummary(p)}</Text> : null}
       </View>
     </PressableScale>
   );
@@ -227,7 +244,7 @@ const UpcomingCard = React.memo(function UpcomingCard({ p, onOpen }) {
 export default function HomeScreen({ navigation }) {
   const { token, openLoginPrompt } = useAuth();
   const { width: W } = useWindowDimensions();
-  const [city, setCity, { detectingLocation, fetchCurrentLocation }] = useCity();
+  const [city, setCity, { detectingLocation, fetchCurrentLocation, locationTitle }] = useCity();
   const { promptOnLaunch } = useLocationAccess();
   const [selectedLocality, setSelectedLocality] = useState("");
   const [searchHistory, setSearchHistory] = useState([]);
@@ -238,8 +255,21 @@ export default function HomeScreen({ navigation }) {
   const [compareHistory, setCompareHistory] = useState([]);
   const [comparedOpen, setComparedOpen] = useState(false);
   const cmp = useCompare();
-  const [tabsWidth, setTabsWidth] = useState(0);
-  const focused = useIsFocused(); // pauses the rolling search hint while Home is hidden
+  const saved = useSaved();
+  // The hero's tilt sensor and rolling text pause while the hero is scrolled fully off screen; its
+  // one-off logo stretch and bell ring follow `focused` only, so scrolling back up doesn't replay them.
+  const [heroOnScreen, setHeroOnScreen] = useState(true);
+  const focused = useIsFocused();
+
+  // Whether the hero is still on screen, from a plain throttled scroll callback that only sets state
+  // when the hero crosses the top edge. Not a Reanimated scroll handler: measured on a budget phone
+  // (Realme RMX3710), running a worklet on every scroll event made 22-29% of scroll frames janky
+  // (slow UI thread); with the plain ScrollView it was 2-3%.
+  const heroH = useRef(0);
+  const onScroll = useCallback((e) => {
+    const visible = heroH.current === 0 || e.nativeEvent.contentOffset.y < heroH.current;
+    setHeroOnScreen((was) => (was === visible ? was : visible));
+  }, []);
 
   const cardW = Math.min(Math.round((W - 40) / 1.55), 250);
 
@@ -292,6 +322,15 @@ export default function HomeScreen({ navigation }) {
     return { featured, recent, launch, upcoming, insights };
   }, [city, selectedLocality]);
 
+  // When the connection comes back, reload anything that failed while offline.
+  const { onReconnect } = useNetwork();
+  const reloadRef = useRef(null);
+  reloadRef.current = () => {
+    refresh();
+    loadUnread();
+  };
+  useEffect(() => onReconnect(() => reloadRef.current?.()), [onReconnect]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([refresh(), loadUnread()]);
@@ -307,11 +346,13 @@ export default function HomeScreen({ navigation }) {
 
   const upcomingItems = useMemo(() => {
     const seen = new Set();
-    return [...(data?.upcoming?.items || []), ...(data?.launch?.items || [])].filter((p) => !seen.has(p.id) && seen.add(p.id)).slice(0, 8);
+    // One card per project, even when it's both "upcoming" and a "new launch".
+    const key = (p) => p.projectKey || p.id;
+    return [...(data?.upcoming?.items || []), ...(data?.launch?.items || [])].filter((p) => !seen.has(key(p)) && seen.add(key(p))).slice(0, 8);
   }, [data]);
 
   const insights = data?.insights;
-  const priceData = (insights?.priceByBhk || []).map((b) => ({ label: `${b.bhk} BHK`, value: b.medianPrice }));
+  const priceData = (insights?.priceByBhk || []).map((b) => ({ label: bhkLabel(b.bhk), value: b.medianPrice }));
   const stageData = (insights?.listingsByStage || []).map((s) => ({ label: s.stage, short: STAGE_SHORT[s.stage] || s.stage, value: s.listings }));
 
   const runSearch = (params) => {
@@ -334,10 +375,7 @@ export default function HomeScreen({ navigation }) {
   };
 
   const onQuickAction = (key) => {
-    if (key === "resume") {
-      if (searchHistory[0]) rerunSearch(searchHistory[0]);
-      else openSearch();
-    } else if (key === "wishlist") {
+    if (key === "wishlist") {
       if (token) navigation.navigate("Saved");
       else openLoginPrompt({ reason: "general", title: "Sign In to See Your Wishlist", message: "Sign in to save properties and find them here on any device." });
     } else if (key === "compared") {
@@ -347,128 +385,94 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  const cityLabel = detectingLocation ? "Locating…" : selectedLocality || city || "All India";
+  // The resume card: the most specific place searched as the title, the other filters as tags.
+  const lastSearch = searchHistory[0];
+  const resumeTitle = lastSearch ? lastSearch.query || lastSearch.locality || lastSearch.city || lastSearch.label : "";
+  const resumeTags = lastSearch
+    ? [bhkLabel(lastSearch.bhk), lastSearch.propertyType, lastSearch.city !== resumeTitle && lastSearch.city]
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+
 
   return (
     <Screen
+      onScroll={onScroll}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brand.violet} colors={[brand.violet]} />}
     >
-      {/* Architecture bleeding in from the top-right, faded into the canvas. */}
-      <View style={[styles.heroImageWrap, { width: W * 0.58 }]} pointerEvents="none">
-        <Image source={HERO_IMAGE} style={styles.heroImage} resizeMode="cover" fadeDuration={0} />
-        <View style={[StyleSheet.absoluteFill, styles.heroWash]} />
-        <LinearGradient
-          colors={[colors.ivory, "rgba(251,249,255,0.5)", "rgba(251,249,255,0)"]}
-          locations={[0, 0.45, 0.85]}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <LinearGradient colors={["rgba(251,249,255,0)", colors.ivory]} locations={[0.55, 1]} style={StyleSheet.absoluteFill} />
+      <View onLayout={(e) => (heroH.current = e.nativeEvent.layout.height)}>
+      <HomeHero
+        city={city}
+        // Area within the city (GPS suburb or the place picked on the Location screen), if any.
+        locality={selectedLocality || (locationTitle && locationTitle !== city ? locationTitle : "")}
+        detecting={detectingLocation}
+        unread={unread}
+        focused={focused}
+        onScreen={heroOnScreen}
+        onLocation={() => navigation.navigate("Location")}
+        onNotifications={() => navigation.navigate("Notification")}
+        onSearch={openSearch}
+      />
       </View>
 
-      <Reveal distance={8} style={styles.header}>
-        <Logo tone="dark" size={30} wordSize={17} />
-        <View style={styles.headerRight}>
-          <PressableScale onPress={() => navigation.navigate("Location")} accessibilityRole="button" accessibilityLabel={`Location: ${cityLabel}. Change location`}>
-            <GlassView level="regular" blur borderRadius={radius.pill} style={styles.cityPill}>
-              <Ionicons name="location" size={14} color={brand.violet} />
-              <Text style={styles.cityText} numberOfLines={1}>
-                {cityLabel}
-              </Text>
-              <Ionicons name="chevron-down" size={13} color={brand.ink} />
-            </GlassView>
-          </PressableScale>
-          <PressableScale
-            onPress={() => navigation.navigate("Notification")}
-            accessibilityRole="button"
-            accessibilityLabel={unread ? `Notifications, ${unread} unread` : "Notifications"}
-          >
-            <GlassView level="regular" blur borderRadius={21} style={styles.bell}>
-              <Ionicons name="notifications" size={19} color={brand.ink} />
-              {unread > 0 ? (
-                <View style={styles.bellBadge}>
-                  <Text style={styles.bellBadgeText}>{unread > 9 ? "9+" : unread}</Text>
-                </View>
-              ) : null}
-            </GlassView>
-          </PressableScale>
-        </View>
-      </Reveal>
-
-      <Reveal delay={70} style={styles.hero}>
-        <View accessible accessibilityRole="header" accessibilityLabel={`Homes that fit your ${HERO_WORDS.join(", ").toLowerCase()}`}>
-          <Text style={styles.h1}>Homes That Fit</Text>
-          <View style={styles.h1Row}>
-            <Text style={styles.h1}>Your </Text>
-            <HeroRotatingWord words={HERO_WORDS} active={focused} style={[styles.h1, { color: brand.violet }]} />
-          </View>
-        </View>
-        <Text style={styles.heroSub}>Smart comparisons, zero guesswork —{"\n"}your perfect home is a tap away.</Text>
-      </Reveal>
-
-      {/* Folder-style tabs sitting on the search bar's top-left edge. */}
-      <Reveal delay={140} style={styles.searchBlock}>
-        <View style={styles.searchTabs} accessibilityRole="tablist" onLayout={(e) => setTabsWidth(e.nativeEvent.layout.width)}>
-          {SEARCH_TABS.map((t, i) => (
-            <React.Fragment key={t.context}>
-              {i > 0 ? <View style={styles.searchTabDivider} /> : null}
-              <PressableScale
-                to={0.95}
-                onPress={() => openSearch(t.context)}
-                style={styles.searchTab}
-                accessibilityRole="tab"
-                accessibilityLabel={t.label}
-                accessibilityHint={`Opens search with ${t.label} selected`}
-              >
-                <Ionicons name={t.icon} size={14} color={brand.violet} />
-                <Text style={styles.searchTabText} numberOfLines={1} maxFontSizeMultiplier={1.3}>{t.label}</Text>
-              </PressableScale>
-            </React.Fragment>
-          ))}
-        </View>
-
-        <PressableScale onPress={() => openSearch()} to={0.98} accessibilityRole="search" accessibilityLabel="Search properties" accessibilityHint="Opens search with filters">
-          <GlassView level="strong" borderRadius={radius.lg} style={[styles.search, styles.searchAttached]}>
-            {/* Covers the bar's top border under the tabs so the two read as one shape. */}
-            {tabsWidth ? <View pointerEvents="none" style={[styles.searchSeam, { width: tabsWidth }]} /> : null}
-            <Ionicons name="search" size={19} color={brand.inkSoft} style={{ marginLeft: 4 }} />
-            <RollingPlaceholder active={focused} style={styles.searchInput} />
-          </GlassView>
-        </PressableScale>
-      </Reveal>
-
-      <View style={styles.quickRow}>
-        {QUICK_ACTIONS.map((a, i) => {
-          // Resume Search says what it will open, so the results page needs no extra message.
-          const sub = a.key === "resume" ? searchHistory[0]?.label || "No recent search" : "";
+      <Fade order={0} style={styles.activityRow}>
+        {ACTIVITY.map((a) => {
+          // Wishlist needs an account; guests see a dash instead of a count.
+          const count = a.key === "wishlist" ? (token ? saved?.count ?? 0 : null) : a.key === "compared" ? compareHistory.length : searchHistory.length;
           return (
-            <Reveal key={a.key} delay={200 + stagger(i, 55)} distance={12}>
+            <View key={a.key} style={styles.activityCell}>
               <PressableScale
                 to={0.95}
                 onPress={() => onQuickAction(a.key)}
-                style={[styles.quickTile, { width: (W - 50) / 2 }]}
+                style={styles.activityTile}
                 accessibilityRole="button"
-                accessibilityLabel={sub ? `${a.label}: ${sub}` : a.label}
+                accessibilityLabel={count == null ? `${a.label}, sign in to see` : `${a.label}, ${count}`}
               >
-                <View style={[styles.quickIcon, { backgroundColor: a.bg }]}>
-                  <Ionicons name={a.icon} size={18} color={a.fg} />
-                </View>
-                <View style={styles.quickText}>
-                  <Text style={styles.quickLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-                    {a.label}
+                {/* Icon on the left, count on the right (inset from the edge), both centred vertically. */}
+                <View style={styles.activityTop}>
+                  <View style={styles.activityIcon}>
+                    {a.icon === "compare" ? <CompareIcon size={18} color={brand.violet} /> : <Ionicons name={a.icon} size={17} color={brand.violet} />}
+                  </View>
+                  <Text style={styles.activityCount} maxFontSizeMultiplier={1.2}>
+                    {count == null ? "—" : count > 99 ? "99+" : String(count)}
                   </Text>
-                  {sub ? (
-                    <Text style={styles.quickSub} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-                      {sub}
-                    </Text>
-                  ) : null}
                 </View>
+                <Text style={styles.activityLabel} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+                  {a.label}
+                </Text>
               </PressableScale>
-            </Reveal>
+            </View>
           );
         })}
-      </View>
+      </Fade>
+
+      {/* Only once there is a search to go back to: where, the filters used, and when. */}
+      {lastSearch ? (
+        <Fade order={1} style={styles.resumeWrap}>
+          <PressableScale
+            to={0.98}
+            onPress={() => rerunSearch(lastSearch)}
+            style={styles.resume}
+            accessibilityRole="button"
+            accessibilityLabel={`Pick up your search: ${lastSearch.label || lastSearch.query}`}
+          >
+            <View style={styles.resumeBorder} />
+            <View style={styles.resumeBody}>
+              <Text style={styles.resumeKicker} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+                {`Pick up your search${lastSearch.timestamp ? `  ·  ${timeAgo(lastSearch.timestamp)}` : ""}`}
+              </Text>
+              {/* One line: the place in bold, then the filters used. */}
+              <Text style={styles.resumeLine} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+                <Text style={styles.resumeTitle}>{resumeTitle}</Text>
+                {resumeTags.length ? <Text style={styles.resumeTags}>{resumeTags.map((t) => `  ·  ${t}`).join("")}</Text> : null}
+              </Text>
+            </View>
+            <LinearGradient colors={gradients.cta} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.resumeGo}>
+              <Ionicons name="arrow-forward" size={17} color={colors.white} />
+            </LinearGradient>
+          </PressableScale>
+        </Fade>
+      ) : null}
 
       {loading && !data ? (
         <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
@@ -479,86 +483,96 @@ export default function HomeScreen({ navigation }) {
       ) : (
         <>
           {featuredItems.length ? (
-            <Reveal style={styles.section}>
+            <Fade order={2} style={styles.section}>
               <SectionTitle title={featuredTitle} action="View All" onAction={() => runSearch(data?.featured?.items?.length ? { featured: true } : {})} />
               <FlatList
                 horizontal
                 data={featuredItems}
                 keyExtractor={(i) => i.id}
                 showsHorizontalScrollIndicator={false}
+                // Mount only what's near the screen at first; the rest renders as you swipe.
+                initialNumToRender={3}
+                maxToRenderPerBatch={3}
+                windowSize={5}
                 // Settle on a whole card after a swipe (card width + the rail's 12pt gap).
                 snapToInterval={cardW + 12}
                 decelerationRate="fast"
                 contentContainerStyle={styles.rail}
                 renderItem={({ item }) => <FeaturedCard p={item} width={cardW} onOpen={openProperty} />}
               />
-            </Reveal>
+            </Fade>
           ) : null}
 
           {/* Home loan banner: opens the eligibility calculator (estimates, no lender offers). */}
-          <Reveal delay={90}>
-            <PressableScale to={0.99} onPress={() => setLoanSheet("eligibility")} style={styles.loan} accessibilityRole="button" accessibilityLabel="Get your home loan easily. Check eligibility">
-              <LinearGradient colors={["#F4EDFF", "#EADFFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-              <Image source={HERO_IMAGE} style={styles.loanImage} resizeMode="cover" />
-              <LinearGradient
-                colors={["#F2EAFF", "rgba(242,234,255,0.7)", "rgba(242,234,255,0)"]}
-                locations={[0, 0.4, 0.75]}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={styles.loanText}>
-                <Text style={styles.loanTitle}>
-                  Get Your{"\n"}
-                  <Text style={{ color: brand.violet }}>Home Loan Easily</Text>
-                </Text>
-                <Text style={styles.loanSub}>Estimate your EMI and how much you could borrow — in seconds.</Text>
+          <Fade order={3}>
+          <PressableScale to={0.99} onPress={() => setLoanSheet("eligibility")} style={styles.loan} accessibilityRole="button" accessibilityLabel="Get your home loan easily. Check eligibility">
+            <LinearGradient colors={["#F9FCFC", "#F4F9FA"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+            <View style={styles.loanImage}>
+              <Image source={HERO_IMAGE} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            </View>
+            <LinearGradient
+              colors={["#F8FBFC", "rgba(248, 251, 252, 0.7)", "rgba(248, 251, 252, 0)"]}
+              locations={[0, 0.4, 0.75]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.loanText}>
+              <Text style={styles.loanTitle}>
+                Get Your{"\n"}
+                <Text style={{ color: brand.violet }}>Home Loan Easily</Text>
+              </Text>
+              <Text style={styles.loanSub}>Estimate your EMI and how much you could borrow — in seconds.</Text>
+            </View>
+            <View style={styles.loanSide}>
+              <GlassView level="strong" borderRadius={12} style={styles.loanChip}>
+                <Text style={styles.loanChipSmall}>Free estimate</Text>
+                <Text style={styles.loanChipBig}>No sign-up</Text>
+              </GlassView>
+              <View style={styles.loanBtn}>
+                <Text style={styles.loanBtnText}>Check Eligibility</Text>
+                <Ionicons name="arrow-forward" size={13} color={brand.ink} />
               </View>
-              <View style={styles.loanSide}>
-                <GlassView level="strong" borderRadius={12} style={styles.loanChip}>
-                  <Text style={styles.loanChipSmall}>Free estimate</Text>
-                  <Text style={styles.loanChipBig}>No sign-up</Text>
-                </GlassView>
-                <View style={styles.loanBtn}>
-                  <Text style={styles.loanBtnText}>Check Eligibility</Text>
-                  <Ionicons name="arrow-forward" size={13} color={brand.ink} />
-                </View>
-              </View>
-            </PressableScale>
-          </Reveal>
+            </View>
+          </PressableScale>
+          </Fade>
 
           {upcomingItems.length ? (
-            <Reveal delay={160} style={styles.section}>
+            <Fade order={4} style={styles.section}>
               <SectionTitle title="Upcoming Properties" action="View All" onAction={() => navigation.navigate("NewProject")} />
               <FlatList
                 horizontal
                 data={upcomingItems}
                 keyExtractor={(i) => `u_${i.id}`}
                 showsHorizontalScrollIndicator={false}
+                // Mount only what's near the screen at first; the rest renders as you swipe.
+                initialNumToRender={3}
+                maxToRenderPerBatch={3}
+                windowSize={5}
                 contentContainerStyle={styles.rail}
                 renderItem={({ item }) => <UpcomingCard p={item} onOpen={openProperty} />}
               />
-            </Reveal>
+            </Fade>
           ) : null}
 
-          <Reveal delay={220}>
-            <PressableScale to={0.99} onPress={() => setLoanSheet("emi")} style={styles.emiCard} accessibilityRole="button" accessibilityLabel="EMI calculator. Calculate your monthly EMI">
-              <LinearGradient colors={gradients.cta} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.emiIcon}>
-                <Ionicons name="calculator" size={22} color="#FFFFFF" />
-              </LinearGradient>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.emiTitle}>EMI Calculator</Text>
-                <Text style={styles.emiSub}>Calculate your monthly EMI and plan your budget.</Text>
-              </View>
-              <View style={styles.emiBtn}>
-                <Text style={styles.emiBtnText}>Calculate EMI</Text>
-                <Ionicons name="arrow-forward" size={13} color={brand.violet} />
-              </View>
-            </PressableScale>
-          </Reveal>
+          <Fade order={5}>
+          <PressableScale to={0.99} onPress={() => setLoanSheet("emi")} style={styles.emiCard} accessibilityRole="button" accessibilityLabel="EMI calculator. Calculate your monthly EMI">
+            <LinearGradient colors={gradients.cta} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.emiIcon}>
+              <Ionicons name="calculator" size={22} color="#FFFFFF" />
+            </LinearGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.emiTitle}>EMI Calculator</Text>
+              <Text style={styles.emiSub}>Calculate your monthly EMI and plan your budget.</Text>
+            </View>
+            <View style={styles.emiBtn}>
+              <Text style={styles.emiBtnText}>Calculate EMI</Text>
+              <Ionicons name="arrow-forward" size={13} color={brand.violet} />
+            </View>
+          </PressableScale>
+          </Fade>
 
           {priceData.length || stageData.some((s) => s.value > 0) ? (
-            <Reveal delay={280} style={styles.section}>
+            <Fade order={6} style={styles.section}>
               <View style={styles.sectionHead}>
                 <Text style={styles.sectionTitle} accessibilityRole="header">
                   Market Analytics
@@ -573,13 +587,14 @@ export default function HomeScreen({ navigation }) {
                   <View style={styles.chartCard}>
                     <Text style={styles.chartTitle}>Price by BHK</Text>
                     <Text style={styles.chartSub}>Median asking price</Text>
-                    <MiniLineChart key={`p_${city}`} data={priceData} formatValue={formatInr} />
+                    <MiniLineChart key={`p_${city}`} data={priceData} formatValue={formatInr} animate={false} />
                   </View>
                 ) : null}
                 {stageData.some((s) => s.value > 0) ? (
                   <View style={styles.chartCard}>
                     <Text style={styles.chartTitle}>Listings by Stage</Text>
                     <Text style={styles.chartSub}>Active listings</Text>
+                    {/* No `play` prop = static bars. */}
                     <MiniBarChart key={`s_${city}`} data={stageData} formatValue={(v) => v.toLocaleString("en-IN")} unit="" />
                   </View>
                 ) : null}
@@ -587,7 +602,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.chartNote}>
                 Based on {insights.listings.toLocaleString("en-IN")} active listings{city ? ` in ${city}` : ""}. Tap a point or bar for its value.
               </Text>
-            </Reveal>
+            </Fade>
           ) : null}
         </>
       )}
@@ -669,85 +684,61 @@ const cardShadow = {
 };
 
 const styles = StyleSheet.create({
-  heroImageWrap: { position: "absolute", top: 0, right: 0, height: 270, overflow: "hidden" },
-  heroImage: { width: "100%", height: "100%" },
-  heroWash: { backgroundColor: "rgba(190,160,255,0.22)" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, minHeight: 48 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
-  cityPill: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, height: 38, maxWidth: 150 },
-  cityText: { fontSize: 13.5, fontWeight: "700", color: brand.ink, flexShrink: 1 },
-  bell: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
-  bellBadge: {
-    position: "absolute",
-    top: 6,
-    right: 6,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    paddingHorizontal: 3,
-    backgroundColor: "#E5484D",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "#FFFFFF",
-  },
-  bellBadgeText: { color: "#FFFFFF", fontSize: 9, fontWeight: "800" },
-  hero: { paddingHorizontal: 20, marginTop: 22 },
-  h1: { fontFamily: fonts.serif, fontSize: 34, lineHeight: 40, fontWeight: "700", color: brand.ink, letterSpacing: -0.8 },
-  h1Row: { flexDirection: "row", alignItems: "flex-end" },
-  heroSub: { fontSize: 14.5, lineHeight: 21, color: brand.inkSoft, marginTop: 10, maxWidth: 320 },
-  searchBlock: { marginHorizontal: 20, marginTop: 20 },
-  searchTabs: {
-    ...surfaces.glassStrong,
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    borderBottomWidth: 0,
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
-    paddingHorizontal: 4,
-  },
-  searchTab: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, minHeight: 44 },
-  searchTabDivider: { width: 1, height: 16, backgroundColor: colors.line },
-  searchTabText: { fontSize: 13, fontWeight: "700", color: brand.ink },
-  search: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 6, gap: 8 },
-  searchAttached: { borderTopLeftRadius: 0 },
-  searchSeam: { position: "absolute", top: -1, left: -1, height: 2, backgroundColor: surfaces.glassStrong.backgroundColor },
-  searchInput: { flex: 1, fontSize: 14, color: brand.ink, minHeight: 44 },
-  // 2 x 2 grid of wide shortcut cards: tinted icon tile + one-line label.
-  quickRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 20, marginTop: 16 },
-  quickTile: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    minHeight: 58,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+  activityRow: { flexDirection: "row", gap: 10, paddingHorizontal: 20, marginTop: 18 },
+  activityCell: { flex: 1 },
+  activityTile: {
+    minHeight: 76,
+    padding: 11,
     borderRadius: 18,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: "#EFE8FB",
+    borderColor: "#EEF2F8",
     ...cardShadow,
   },
-  quickIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  quickText: { flex: 1, minWidth: 0 },
-  quickLabel: { fontSize: 13.5, fontWeight: "700", color: brand.ink },
-  quickSub: { fontSize: 11.5, fontWeight: "600", color: brand.inkSoft, marginTop: 1 },
+  activityTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  activityIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: "#EAF0FF", alignItems: "center", justifyContent: "center" },
+  // Right side of the row, kept clear of the tile's edge; the row centres it on the icon.
+  activityCount: { marginRight: 6, fontSize: 19, lineHeight: 24, fontWeight: "800", color: brand.ink, textAlignVertical: "center", includeFontPadding: false },
+  activityLabel: { fontSize: 12.5, fontWeight: "600", color: brand.inkSoft, marginTop: 9 },
+  resumeWrap: { marginHorizontal: 20, marginTop: 12 },
+  resume: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 9,
+    paddingLeft: 16,
+    paddingRight: 9,
+    borderRadius: 16,
+    overflow: "hidden", // clips the left border bar to the card's rounded corners
+    backgroundColor: "#EEF3FF",
+    borderWidth: 1,
+    borderColor: "rgba(36, 87, 255, 0.12)",
+  },
+  resumeBody: { flex: 1, minWidth: 0 },
+  resumeKicker: { fontSize: 11.5, fontWeight: "600", color: brand.inkSoft },
+  resumeLine: { marginTop: 2 },
+  resumeTitle: { fontSize: 14.5, fontWeight: "800", color: brand.ink },
+  resumeTags: { fontSize: 12.5, fontWeight: "600", color: brand.violet },
+  resumeBorder: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4, backgroundColor: brand.violet },
+  // Same as the hero search bar's button: 40pt rounded square, blue gradient, white icon.
+  resumeGo: { width: 40, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   section: { marginTop: 26 },
   sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, marginBottom: 12 },
   sectionTitle: { fontFamily: fonts.serif, fontSize: 21, fontWeight: "700", color: brand.ink, letterSpacing: -0.3 },
   viewAll: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 32 },
   viewAllText: { fontSize: 13, fontWeight: "800", color: brand.violet },
   rail: { paddingHorizontal: 20, gap: 12, paddingBottom: 6 },
-  fCard: { backgroundColor: "#FFFFFF", borderRadius: 26, padding: 8, borderWidth: 1, borderColor: "#F0EAFB", ...cardShadow },
+  fCard: { backgroundColor: "#FFFFFF", borderRadius: 26, padding: 8, borderWidth: 1, borderColor: "#F0F4F5", ...cardShadow },
   // Inset photo with its own rounded corners (the card's padding shows around it).
   fImageWrap: { borderRadius: 20, overflow: "hidden", backgroundColor: brand.lavender },
   fHeart: { position: "absolute", top: 8, right: 8 },
   fBody: { paddingHorizontal: 6, paddingTop: 12, paddingBottom: 4 },
   fNameRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   fTitle: { flexShrink: 1, fontSize: 15.5, fontWeight: "800", color: brand.ink },
-  fDesc: { fontSize: 12.5, lineHeight: 18, color: brand.inkSoft, marginTop: 4, minHeight: 36 },
-  fPrice: { fontSize: 13, fontWeight: "800", color: brand.ink },
+  fDesc: { marginTop: 4, minHeight: 36, gap: 2 },
+  fPrice: { fontSize: 13.5, lineHeight: 18, fontWeight: "800", color: brand.ink },
+  fPriceLabel: { fontSize: 11.5, fontWeight: "600", color: brand.inkSoft },
+  fPlace: { fontSize: 12.5, lineHeight: 18, color: brand.inkSoft },
   fFoot: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10, minHeight: 18 },
   fActions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 },
   // The border is permanent (violet blends into the gradient); never toggle it - see FeaturedCard.
@@ -760,13 +751,12 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: "rgba(255,255,255,0.55)",
     shadowColor: "#0E9F6E", shadowOpacity: 0.55, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 5,
   },
-  reraSheen: { position: "absolute", top: -10, bottom: -10, width: 18 },
   reraTick: { width: 18, height: 18, borderRadius: 9, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
   reraText: { fontSize: 11, fontWeight: "900", color: colors.white, letterSpacing: 1 },
   fStat: { flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 1 },
   fStatText: { fontSize: 11.5, fontWeight: "600", color: brand.inkSoft },
   fPill: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 19, backgroundColor: brand.lavender },
-  loan: { marginHorizontal: 20, marginTop: 24, borderRadius: radius.xl, overflow: "hidden", flexDirection: "row", padding: 16, minHeight: 150, borderWidth: 1, borderColor: "#E6DAFF" },
+  loan: { marginHorizontal: 20, marginTop: 24, borderRadius: radius.xl, overflow: "hidden", flexDirection: "row", padding: 16, minHeight: 150, borderWidth: 1, borderColor: "#E7EFF2" },
   loanImage: { position: "absolute", right: 0, top: 0, bottom: 0, width: "58%", opacity: 0.9 },
   loanText: { flex: 1.25, justifyContent: "center", paddingRight: 8 },
   loanTitle: { fontFamily: fonts.serif, fontSize: 21, lineHeight: 26, fontWeight: "700", color: brand.ink },
@@ -777,7 +767,7 @@ const styles = StyleSheet.create({
   loanChipBig: { fontSize: 13, color: brand.violet, fontWeight: "800" },
   loanBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: brand.goldBright, paddingHorizontal: 12, height: 36, borderRadius: radius.pill },
   loanBtnText: { fontSize: 12.5, fontWeight: "800", color: brand.ink },
-  uCard: { width: 236, flexDirection: "row", gap: 10, padding: 8, backgroundColor: "#FFFFFF", borderRadius: radius.lg, borderWidth: 1, borderColor: "#EFE8FB", ...cardShadow },
+  uCard: { width: 236, flexDirection: "row", gap: 10, padding: 8, backgroundColor: "#FFFFFF", borderRadius: radius.lg, borderWidth: 1, borderColor: "#EFF3F4", ...cardShadow },
   uImage: { width: 72, height: 84, borderRadius: 12 },
   uBody: { flex: 1, justifyContent: "center" },
   uBadge: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, marginBottom: 4 },
@@ -800,15 +790,15 @@ const styles = StyleSheet.create({
   emiSub: { fontSize: 11.5, lineHeight: 16, color: brand.inkSoft, marginTop: 2 },
   emiBtn: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1.4, borderColor: brand.violet, paddingHorizontal: 11, height: 36, borderRadius: radius.pill },
   emiBtnText: { fontSize: 12, fontWeight: "800", color: brand.violet },
-  marketCity: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E6DAFF", paddingHorizontal: 10, height: 32, borderRadius: radius.pill },
+  marketCity: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E7EFF2", paddingHorizontal: 10, height: 32, borderRadius: radius.pill },
   marketCityText: { fontSize: 12.5, fontWeight: "700", color: brand.ink },
   // Charts stacked one under the other, each full width.
   chartsRow: { gap: 14, paddingHorizontal: 20 },
-  chartCard: { backgroundColor: "#FFFFFF", borderRadius: radius.lg, padding: 16, borderWidth: 1, borderColor: "#EFE8FB", ...cardShadow },
+  chartCard: { backgroundColor: "#FFFFFF", borderRadius: radius.lg, padding: 16, borderWidth: 1, borderColor: "#EFF3F4", ...cardShadow },
   chartTitle: { fontSize: 15, fontWeight: "800", color: brand.ink },
   chartSub: { fontSize: 12, color: brand.inkSoft, marginBottom: 10 },
   chartNote: { fontSize: 11.5, color: brand.inkSoft, paddingHorizontal: 20, marginTop: 10 },
-  recentRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 50, borderBottomWidth: 1, borderBottomColor: "#F1ECFB" },
+  recentRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 50, borderBottomWidth: 1, borderBottomColor: "#F1F5F6" },
   recentText: { flex: 1, fontSize: 14.5, color: brand.ink, fontWeight: "600" },
   comparedRow: { paddingVertical: 12 },
   comparedBody: { flex: 1, minWidth: 0 },

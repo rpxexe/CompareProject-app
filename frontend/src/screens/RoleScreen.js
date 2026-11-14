@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: 14,
     borderWidth: 1.5,
-    borderColor: "#ECE4FB",
+    borderColor: "#ECF1F3",
     ...shadow.glass,
   },
   on: {

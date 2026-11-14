@@ -136,14 +136,14 @@ function PropertyCard({ property: p, variant = "row", index = 0, style }) {
           to={0.97}
           style={styles.hero}
           accessibilityRole="button"
-          accessibilityLabel={p.title}
+          accessibilityLabel={listingName(p)}
         >
           <Cover uri={p.image} style={StyleSheet.absoluteFill} iconSize={48} />
           <LinearGradient
             colors={[
-              "rgba(20,10,46,0.05)",
-              "rgba(20,10,46,0.38)",
-              "rgba(20,10,46,0.92)",
+              "rgba(10, 18, 46, 0.05)",
+              "rgba(10, 18, 46, 0.38)",
+              "rgba(10, 18, 46, 0.92)",
             ]}
             style={StyleSheet.absoluteFill}
           />
@@ -168,7 +168,7 @@ function PropertyCard({ property: p, variant = "row", index = 0, style }) {
           <View style={styles.heroBottom}>
             <RatingChip rating={p.rating} light />
             <Text style={styles.heroTitle} numberOfLines={2}>
-              {p.title}
+              {listingName(p)}
             </Text>
             {where ? (
               <Text style={styles.heroLoc} numberOfLines={1}>
@@ -221,7 +221,7 @@ function RowCard({ p, enter, style, open, where, badge, facts }) {
         <View style={styles.photo} pointerEvents="box-none">
           <Cover uri={p.image} style={StyleSheet.absoluteFill} iconSize={30} />
           <LinearGradient
-            colors={["rgba(15, 8, 36, 0)", "rgba(15, 8, 36, 0.35)"]}
+            colors={["rgba(8, 15, 36, 0)", "rgba(8, 15, 36, 0.35)"]}
             locations={[0.55, 1]}
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   glassBadge: {
-    backgroundColor: "rgba(201, 162, 255, 0.88)",
+    backgroundColor: "rgba(162, 202, 255, 0.88)",
     borderWidth: 1.2,
     borderColor: "rgba(255, 255, 255, 0.95)",
     shadowColor: colors.gold,
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     alignSelf: "flex-start",
-    backgroundColor: "rgba(235, 226, 255, 0.75)",
+    backgroundColor: "rgba(245, 249, 251, 0.75)",
     borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(228, 219, 250, 0.85)",
+    backgroundColor: "rgba(242, 246, 248, 0.85)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.8)",
     alignItems: "center",

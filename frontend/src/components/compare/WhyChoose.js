@@ -6,6 +6,7 @@ import { useEntrance } from "../../hooks/useEntrance";
 import { isReducedMotion } from "../../hooks/useReducedMotion";
 import { colors, radius, shadow } from "../../theme";
 import Text from "../AppText";
+import { listingName } from "../../utils/format";
 import { INSIGHT_STYLE } from "./insightStyle";
 
 // Quick verdicts ("Best Price", "Most Spacious", ...) computed from the compared listings.
@@ -45,7 +46,7 @@ function Tile({ ins, p, index, width, onOpen }) {
         </Animated.View>
         <View style={{ flex: 1 }}>
           <Text style={styles.tileTitle} numberOfLines={1}>{ins.title}</Text>
-          <Text style={styles.name} numberOfLines={1}>{p.title}</Text>
+          <Text style={styles.name} numberOfLines={1}>{listingName(p)}</Text>
           <Text style={[styles.value, { color: look.color }]} numberOfLines={1}>{ins.value}</Text>
         </View>
       </PressableScale>
@@ -60,9 +61,9 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 12,
     borderRadius: radius.lg,
-    backgroundColor: "#F1EBFF",
+    backgroundColor: "#F4F8FA",
     borderWidth: 1,
-    borderColor: "rgba(124, 44, 245, 0.10)",
+    borderColor: "rgba(36, 87, 255, 0.10)",
   },
   title: { fontSize: 16, fontWeight: "800", color: colors.ink, paddingHorizontal: 14 },
   sub: { fontSize: 11.5, color: colors.muted, marginTop: 2, paddingHorizontal: 14 },

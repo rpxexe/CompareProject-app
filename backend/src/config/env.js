@@ -28,6 +28,8 @@ function load() {
     mongoUri: process.env.MONGODB_URI || '',
     mongoFallbackUri: process.env.MONGODB_FALLBACK_URI || '',
     mongoCollection: process.env.MONGODB_COLLECTION || 'properties',
+    // Atlas Search index for free-text search (see src/utils/atlasSearch.js); empty = regex search.
+    atlasSearchIndex: String(process.env.ATLAS_SEARCH_INDEX || '').trim(),
     jwtSecret: process.env.JWT_SECRET || '',
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || '30d',
     // Public origin used in uploaded image URLs (e.g. https://api.example.com); defaults to the request host.

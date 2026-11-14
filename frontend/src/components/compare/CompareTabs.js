@@ -8,26 +8,33 @@ import Text from "../AppText";
 
 // Pill tabs. Layers: white chips, then the filled pill that springs between them, then the labels,
 // whose white copy fades in as the pill passes underneath.
+// The pill moves with translateX and resizes with scaleX on the native driver. (Animating `left` /
+// `width` ran every frame in JavaScript, and a tab switch is exactly when JavaScript is busy
+// building the new table, so the pill stuttered.)
 export default function CompareTabs({ tabs, value, onChange }) {
   const [layouts, setLayouts] = useState({});
+  const [pillW, setPillW] = useState(0);
   const x = useRef(new Animated.Value(0)).current;
-  const w = useRef(new Animated.Value(0)).current;
+  const s = useRef(new Animated.Value(1)).current; // width of the previous tab / this tab's, eased to 1
   const placed = useRef(false);
 
   useEffect(() => {
     const l = layouts[value];
     if (!l) return;
+    const from = pillW || l.width;
+    setPillW(l.width);
     if (!placed.current || isReducedMotion()) {
       x.setValue(l.x);
-      w.setValue(l.width);
+      s.setValue(1);
       placed.current = true;
       return;
     }
+    s.setValue(from / l.width);
     Animated.parallel([
-      Animated.spring(x, { toValue: l.x, speed: 14, bounciness: 7, useNativeDriver: false }),
-      Animated.spring(w, { toValue: l.width, speed: 14, bounciness: 7, useNativeDriver: false }),
+      Animated.spring(x, { toValue: l.x, speed: 14, bounciness: 7, useNativeDriver: true }),
+      Animated.spring(s, { toValue: 1, speed: 14, bounciness: 4, useNativeDriver: true }),
     ]).start();
-  }, [layouts, value, x, w]);
+  }, [layouts, value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const ready = tabs.every((t) => layouts[t.key]);
 
@@ -39,7 +46,10 @@ export default function CompareTabs({ tabs, value, onChange }) {
           ))
         : null}
       {ready ? (
-        <Animated.View style={[styles.pill, { left: x, width: w }]} pointerEvents="none">
+        <Animated.View
+          style={[styles.pill, { width: pillW, transformOrigin: "left center", transform: [{ translateX: x }, { scaleX: s }] }]}
+          pointerEvents="none"
+        >
           <LinearGradient colors={gradients.cta} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
         </Animated.View>
       ) : null}
@@ -83,10 +93,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderWidth: 1,
-    borderColor: "rgba(124, 44, 245, 0.10)",
+    borderColor: "rgba(36, 87, 255, 0.10)",
   },
   pill: {
     position: "absolute",
+    left: 0,
     top: 6,
     bottom: 6,
     borderRadius: radius.pill,

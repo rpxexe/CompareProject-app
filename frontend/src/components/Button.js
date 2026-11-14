@@ -72,7 +72,7 @@ export default function Button({
       ) : variant === "glass" ? (
         <View style={[styles.base, small && styles.small, compact && styles.compact, styles.glassBtn]}>
           <LinearGradient
-            colors={["rgba(255,255,255,0.95)", "rgba(250,247,255,0.75)"]}
+            colors={["rgba(255,255,255,0.95)", "rgba(252, 253, 254, 0.75)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0.8, y: 1 }}
             style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]}
@@ -88,13 +88,13 @@ export default function Button({
       ) : variant === "glassDark" ? (
         <View style={[styles.base, small && styles.small, compact && styles.compact, styles.glassDarkBtn]}>
           <LinearGradient
-            colors={["rgba(42, 16, 96, 0.85)", "rgba(20, 10, 46, 0.82)"]}
+            colors={["rgba(16, 35, 96, 0.85)", "rgba(10, 18, 46, 0.82)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0.8, y: 1 }}
             style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]}
           />
           <LinearGradient
-            colors={["rgba(199, 125, 255, 0.3)", "rgba(255, 255, 255, 0.02)"]}
+            colors={["rgba(125, 155, 255, 0.3)", "rgba(255, 255, 255, 0.02)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0.6 }}
             style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]}
@@ -119,7 +119,7 @@ export default function Button({
             {
               backgroundColor: "rgba(255, 255, 255, 0.65)",
               borderWidth: 1.5,
-              borderColor: "rgba(225, 216, 245, 0.85)",
+              borderColor: "rgba(226, 233, 235, 0.85)",
             },
           ]}
         >
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   glassBtn: {
     backgroundColor: "rgba(255, 255, 255, 0.78)",
     borderWidth: 1,
-    borderColor: "#E6DAFF",
+    borderColor: "#E7EFF2",
     shadowColor: brand.deep,
     shadowOpacity: 0.06,
     shadowRadius: 12,
@@ -159,10 +159,10 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   glassDarkBtn: {
-    backgroundColor: "rgba(20, 10, 46, 0.8)",
+    backgroundColor: "rgba(10, 18, 46, 0.8)",
     borderWidth: 1.2,
-    borderColor: "rgba(199, 125, 255, 0.45)",
-    shadowColor: "#7C3AED",
+    borderColor: "rgba(125, 155, 255, 0.45)",
+    shadowColor: "#2457FF",
     shadowOpacity: 0.25,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },

@@ -412,7 +412,7 @@ function CityTile({ name, on, delay, onPress }) {
         <CityLandmark
           city={name}
           size={54}
-          stroke={on ? brand.violet : "#5B5670"}
+          stroke={on ? brand.violet : "#565C70"}
           fill={on ? brand.lavenderMid : "none"}
           hole={on ? colors.white : "none"}
           strokeWidth={on ? 1.7 : 1.5}
@@ -764,8 +764,8 @@ const styles = StyleSheet.create({
 
   listCard: { borderRadius: radius.lg, backgroundColor: colors.white, borderWidth: 1, borderColor: brand.lavenderMid, overflow: "hidden", ...shadow.card },
   row: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 60, paddingHorizontal: 14, paddingVertical: 10 },
-  rowLine: { borderTopWidth: 1, borderTopColor: "#F1ECFA" },
-  rowOn: { backgroundColor: "#FBF8FF" },
+  rowLine: { borderTopWidth: 1, borderTopColor: "#F1F4F5" },
+  rowOn: { backgroundColor: "#FDFEFE" },
   rowIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: brand.lavender },
   rowTitle: { fontSize: 14.5, fontWeight: "600", color: brand.ink },
   rowSub: { fontSize: 12.5, color: brand.inkSoft, marginTop: 2, lineHeight: 17 },
@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
 
   sectionRow: { flexDirection: "row", alignItems: "center" },
   clearText: { fontSize: 13, fontWeight: "800", color: brand.violet, marginTop: 12 },
-  backdrop: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "rgba(20, 12, 40, 0.18)" },
+  backdrop: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "rgba(12, 19, 40, 0.18)" },
   dropdown: { position: "absolute", left: 16, right: 16, borderRadius: radius.lg, backgroundColor: colors.white, ...shadow.float },
   dropdownInner: { paddingHorizontal: 6, paddingTop: 4, paddingBottom: 10 },
   dropdownNote: { marginHorizontal: 10, marginTop: 12 },
@@ -790,9 +790,9 @@ const styles = StyleSheet.create({
   trendHead: { flexDirection: "row", alignItems: "center", gap: 8 },
   trendName: { flex: 1 },
   trendCount: { fontSize: 12, fontWeight: "700", color: brand.violet },
-  trendTrack: { height: 5, marginTop: 7, borderRadius: 3, backgroundColor: "#F1ECFA", overflow: "hidden" },
+  trendTrack: { height: 5, marginTop: 7, borderRadius: 3, backgroundColor: "#F1F4F5", overflow: "hidden" },
   trendBar: { height: 5, borderRadius: 3, backgroundColor: brand.violet, transformOrigin: "left" },
-  trendBarIdle: { backgroundColor: "#B79BF2" },
+  trendBarIdle: { backgroundColor: "#9BAFF2" },
 
   // Nearby: swipeable cards running edge to edge.
   stripWrap: { marginHorizontal: -16 },
@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
   exampleText: { fontSize: 13, fontWeight: "700", color: brand.ink },
   exampleCity: { fontSize: 11.5, color: brand.inkSoft, marginTop: 1 },
 
-  skel: { backgroundColor: "#EEE8FA" },
+  skel: { backgroundColor: "#EEF3F4" },
   skelLine: { height: 12, borderRadius: 6 },
 
   empty: { alignItems: "center", paddingVertical: 32, paddingHorizontal: 20, gap: 8 },

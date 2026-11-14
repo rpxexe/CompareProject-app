@@ -219,7 +219,7 @@ export default function NotificationScreen({ navigation }) {
               <LinearGradient
                 colors={
                   item.unread
-                    ? ["rgba(255, 255, 255, 0.95)", "rgba(246, 242, 255, 0.85)"]
+                    ? ["rgba(255, 255, 255, 0.95)", "rgba(250, 252, 253, 0.85)"]
                     : ["rgba(255, 255, 255, 0.9)", "rgba(255, 255, 255, 0.7)"]
                 }
                 start={{ x: 0, y: 0 }}
@@ -281,8 +281,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(225, 216, 245, 0.6)",
-    backgroundColor: "rgba(246, 242, 255, 0.9)",
+    borderBottomColor: "rgba(226, 233, 235, 0.6)",
+    backgroundColor: "rgba(250, 252, 253, 0.9)",
   },
   backButton: {
     width: 40,
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     ...shadow.glass,
   },
   cardUnread: {
-    borderColor: "rgba(166, 107, 255, 0.6)",
+    borderColor: "rgba(107, 142, 255, 0.6)",
   },
   iconWrap: {
     width: 44,

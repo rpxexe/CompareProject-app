@@ -6,9 +6,9 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#FBF9FF",
+    "backgroundColor": "#FDFEFE",
     "splash": {
-      "backgroundColor": "#000000"
+      "backgroundColor": "#FFFFFF"
     },
     "android": {
       "permissions": [
@@ -36,7 +36,7 @@
       "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0B0420"
+        "backgroundColor": "#FFFFFF"
       },
       "softwareKeyboardLayoutMode": "resize",
       "allowBackup": false

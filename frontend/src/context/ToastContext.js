@@ -16,7 +16,7 @@ const KINDS = {
   success: { icon: 'checkmark-done', colors: ['#34D399', '#059669'], soft: '#E3F7EE', title: 'Done' },
   error: { icon: 'close', colors: ['#FB7185', '#DC2626'], soft: '#FDECEC', title: 'Something went wrong' },
   warning: { icon: 'alert', colors: ['#FCD34D', '#D97706'], soft: '#FFF5DC', title: 'Heads up' },
-  info: { icon: 'notifications', colors: ['#A66BFF', '#6D28D9'], soft: brand.lavender, title: 'Notice' },
+  info: { icon: 'notifications', colors: ['#6B8EFF', '#2851D9'], soft: brand.lavender, title: 'Notice' },
 };
 
 // One toast card. It plays its own entrance (drop in + icon pop), counts down with a progress
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: colors.white, borderRadius: radius.lg,
     paddingLeft: 12, paddingRight: 14, paddingTop: 12, paddingBottom: 14,
-    borderWidth: 1, borderColor: 'rgba(124, 44, 245, 0.08)', overflow: 'hidden',
+    borderWidth: 1, borderColor: 'rgba(36, 87, 255, 0.08)', overflow: 'hidden',
     ...shadow.glassFloat,
   },
   badgeWrap: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
@@ -185,6 +185,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill, backgroundColor: brand.lavender,
   },
   actionText: { color: brand.violet, fontSize: 12.5, fontWeight: '800' },
-  track: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: 'rgba(124, 44, 245, 0.06)' },
+  track: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: 'rgba(36, 87, 255, 0.06)' },
   bar: { height: 3, width: '100%', transformOrigin: 'left' },
 });

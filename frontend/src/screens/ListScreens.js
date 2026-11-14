@@ -13,11 +13,11 @@ import { useToast } from '../context/ToastContext';
 import { smoothLayout } from '../components/compare/CompareTable';
 import PressableScale from '../components/PressableScale';
 import { clearSearchHistory, getSearchHistory } from '../services/historyService';
-import { timeAgo } from '../utils/format';
+import { listingName, timeAgo } from '../utils/format';
 import { colors, radius } from '../theme';
 import Text from "../components/AppText";
 
-const STATUS = { pending: ['Pending review', '#6D28D9', '#EBE2FF'], approved: ['Live', '#3F7D5C', '#E4F1E9'], rejected: ['Rejected', '#C96B6B', '#F6E3E3'] };
+const STATUS = { pending: ['Pending review', '#2851D9', '#F5F9FB'], approved: ['Live', '#3F7D5C', '#E4F1E9'], rejected: ['Rejected', '#C96B6B', '#F6E3E3'] };
 
 export function SavedScreen({ navigation }) {
   const { data, loading, error, reload, refresh } = useApi(() => api.saved(), []);
@@ -63,7 +63,7 @@ export function MyPropertiesScreen({ navigation }) {
   const post = () => navigation.navigate('Tabs', { screen: 'Post' });
 
   const confirmDelete = (p) =>
-    Alert.alert('Delete property?', `"${p.title}" will be removed permanently. This can't be undone.`, [
+    Alert.alert('Delete property?', `"${listingName(p)}" will be removed permanently. This can't be undone.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -111,7 +111,7 @@ export function MyPropertiesScreen({ navigation }) {
                     <Ionicons name="create-outline" size={16} color={colors.goldDeep} />
                     <Text style={[styles.crudText, { color: colors.goldDeep }]}>Edit</Text>
                   </PressableScale>
-                  <PressableScale onPress={() => confirmDelete(p)} to={0.94} style={[styles.crudBtn, styles.crudDelete]} accessibilityRole="button" accessibilityLabel={`Delete ${p.title}`}>
+                  <PressableScale onPress={() => confirmDelete(p)} to={0.94} style={[styles.crudBtn, styles.crudDelete]} accessibilityRole="button" accessibilityLabel={`Delete ${listingName(p)}`}>
                     <Ionicons name="trash-outline" size={16} color={colors.error} />
                     <Text style={[styles.crudText, { color: colors.error }]}>Delete</Text>
                   </PressableScale>
@@ -219,7 +219,7 @@ function HistoryRow({ icon, title, meta, onPress, last }) {
         <Text style={styles.hTitle} numberOfLines={2}>{title}</Text>
         {meta ? <Text style={styles.hMeta} numberOfLines={1}>{meta}</Text> : null}
       </View>
-      <Ionicons name="chevron-forward" size={16} color="#B5AFBB" />
+      <Ionicons name="chevron-forward" size={16} color="#AFB2BB" />
     </PressableScale>
   );
 }

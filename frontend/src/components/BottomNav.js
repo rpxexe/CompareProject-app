@@ -9,6 +9,7 @@ import { brand, colors, gradients } from "../theme";
 import { useAuth } from "../context/AuthContext";
 import { useCompare } from "../context/CompareContext";
 import CompareTray from "./CompareTray";
+import CompareIcon from "./CompareIcon";
 import { isReducedMotion } from "../hooks/useReducedMotion";
 import Text from "./AppText";
 
@@ -24,22 +25,7 @@ const NOTCH_R = 30; // half-width of the bowl
 const NOTCH_SHOULDER = 10; // smoothing where the bowl meets the flat edge
 const NOTCH_DEPTH = 31;
 
-const MUTED = "#8A82A3";
-
-// Chemical-equilibrium arrow (⇌): two half-headed arrows pointing opposite ways.
-function EquilibriumIcon({ size = 22, color, bold }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 9H20L15 4M20 15H4L9 20"
-        stroke={color}
-        strokeWidth={bold ? 2.4 : 2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
+const MUTED = "#828AA3";
 
 const TABS = {
   Home: {
@@ -60,7 +46,7 @@ const TABS = {
   },
   Compare: {
     label: "Compare",
-    icon: (on, c) => <EquilibriumIcon color={c} bold={on} />,
+    icon: (on, c) => <CompareIcon color={c} bold={on} />,
   },
   Profile: {
     label: "Profile",
@@ -283,7 +269,7 @@ const styles = StyleSheet.create({
     borderRadius: BAR_RADIUS,
     overflow: "hidden",
     // Outset box shadows render only outside the bar's box, so the see-through notch stays clear.
-    boxShadow: "0 6px 20px rgba(20, 10, 46, 0.16), 0 1px 4px rgba(20, 10, 46, 0.10)",
+    boxShadow: "0 6px 20px rgba(10, 18, 46, 0.16), 0 1px 4px rgba(10, 18, 46, 0.10)",
   },
   fill: { position: "absolute", top: 0, left: 0, height: BAR_H },
   item: {

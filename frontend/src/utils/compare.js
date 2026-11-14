@@ -1,4 +1,4 @@
-import { orNA, isPresent, floorText } from './format.js';
+import { orNA, isPresent, floorText, bhkLabel, isRk } from './format.js';
 
 export const COMPARE_MAX = 3;
 
@@ -7,7 +7,7 @@ export const COMPARE_ROWS = [
   { key: 'developerName', label: 'Developer' },
   { key: 'location', label: 'Location', get: (p) => [p.locality, p.city].filter(Boolean).join(', ') },
   { key: 'price', label: 'Price', get: (p) => (p.priceMin ? `${p.priceMin} – ${p.price}` : p.price) },
-  { key: 'bhk', label: 'BHK', get: (p) => (p.bhk ? `${p.bhk} BHK` : '') },
+  { key: 'bhk', label: 'BHK', get: (p) => bhkLabel(p.bhk) },
   { key: 'area', label: 'Area' },
   { key: 'propertyType', label: 'Type' },
   { key: 'possessionStatus', label: 'Possession' },
@@ -79,7 +79,10 @@ export function winners(scores, best = 'max') {
 
 export const KEY_ROWS = [
   { key: 'price', label: 'Price', icon: 'pricetag-outline', get: (p) => (p.priceMin ? `${p.priceMin} – ${p.price}` : p.price), score: (p) => positive(p.priceValue), best: 'min' },
-  { key: 'bhk', label: 'BHK', icon: 'home-outline', get: (p) => (p.bhk ? `${p.bhk} BHK` : ''), score: (p) => maxNumber(p.bhk) },
+  { key: 'bhk', label: 'BHK', icon: 'home-outline', get: (p) => bhkLabel(p.bhk), score: (p) => (isRk(p.bhk) ? 0.5 : maxNumber(p.bhk)) },
+  // Every configuration the whole project sells ("1, 2, 3 BHK"), from all its units (the compare
+  // API adds bhkOptions); the BHK row above is the compared unit's own.
+  { key: 'bhkOptions', label: 'BHK\nOffered', icon: 'grid-outline', get: (p) => (p.bhkOptions?.length ? bhkLabel(p.bhkOptions.join(',')) : '') },
   { key: 'area', label: 'Area', icon: 'resize-outline', score: areaSqft },
   { key: 'propertyType', label: 'Type', icon: 'business-outline' },
   { key: 'possessionStatus', label: 'Possession', icon: 'calendar-outline', score: (p) => (p.possessionStatus ? (isReady(p.possessionStatus) ? 1 : 0) : null) },

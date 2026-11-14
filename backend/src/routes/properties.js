@@ -45,6 +45,9 @@ router.get("/saved/list", authRequired, Property.getSavedProperties);
 
 router.get("/:id", authOptional, Property.getProperty);
 
+// Every unit (BHK / size) of the listing's project, for the details screen's picker.
+router.get("/:id/units", authOptional, Property.getProjectUnits);
+
 // Body {saved:true|false} makes the call idempotent; with no body it toggles.
 router.post("/:id/save", authRequired, Property.saveProperty);
 

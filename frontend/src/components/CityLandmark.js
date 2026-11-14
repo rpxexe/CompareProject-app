@@ -4,7 +4,7 @@ import Svg, { Circle, Path, Rect } from "react-native-svg";
 // Line-art landmark for a city, drawn on a 48×48 grid standing on a ground line at y=44.
 // `fill` tints the buildings (e.g. the picked city) and `hole` paints arches and doors so they
 // read as openings; both default to "none" for a plain outline.
-export default function CityLandmark({ city, size = 52, stroke = "#5B5670", fill = "none", hole = "none", strokeWidth = 1.5 }) {
+export default function CityLandmark({ city, size = 52, stroke = "#565C70", fill = "none", hole = "none", strokeWidth = 1.5 }) {
   const Draw = DRAWINGS[city] || skyline;
   const line = { stroke, strokeWidth, strokeLinejoin: "round", strokeLinecap: "round" };
   return (

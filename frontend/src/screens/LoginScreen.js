@@ -483,7 +483,7 @@ export default function LoginScreen({ navigation }) {
       {/* Edge-to-edge: fade content out under the status bar so it never collides with the clock. */}
       <LinearGradient
         pointerEvents="none"
-        colors={["#FBF9FF", "rgba(251,249,255,0.9)", "rgba(251,249,255,0)"]}
+        colors={["#FDFEFE", "rgba(253, 254, 254, 0.9)", "rgba(253, 254, 254, 0)"]}
         locations={[0, 0.75, 1]}
         // Covers the status bar only; taller fades washed out the Back/Skip buttons below it.
         style={[styles.statusScrim, { height: insets.top + 6 }]}
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     borderRadius: radius.lg,
     ...surfaces.glass,
-    borderColor: "#ECE4FB",
+    borderColor: "#ECF1F3",
     shadowColor: brand.deep,
     shadowOpacity: 0.05,
     shadowRadius: 10,
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   },
   panelTabText: { fontSize: 11.5, fontWeight: "800", letterSpacing: 0.8, color: brand.violet },
   panelHint: { fontSize: 12.5, color: brand.inkSoft, fontWeight: "500" },
-  panelRule: { height: 2, backgroundColor: "#F1ECFB", borderRadius: 1, marginTop: 12, marginBottom: 18 },
+  panelRule: { height: 2, backgroundColor: "#F1F5F6", borderRadius: 1, marginTop: 12, marginBottom: 18 },
   panelRuleActive: { width: "48%", height: 2, borderRadius: 1, backgroundColor: brand.violet },
   fieldLabel: { fontSize: 13.5, fontWeight: "700", color: brand.ink, marginBottom: 8 },
   field: {
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
   fieldErrorText: { color: colors.error, fontSize: 12.5, fontWeight: "600", marginTop: 6 },
   country: { flexDirection: "row", alignItems: "center", gap: 8 },
   countryText: { fontSize: 15.5, fontWeight: "700", color: brand.ink },
-  divider: { width: 1, height: 24, backgroundColor: "#DDD3F2", marginHorizontal: 12 },
+  divider: { width: 1, height: 24, backgroundColor: "#DEE5E7", marginHorizontal: 12 },
   input: { flex: 1, minHeight: 52, fontSize: 16, color: brand.ink, fontWeight: "600", letterSpacing: 0.3 },
   eyeBtn: { paddingLeft: 10, minHeight: 44, justifyContent: "center" },
   errorBox: {
@@ -611,6 +611,6 @@ const styles = StyleSheet.create({
   errorText: { flex: 1, color: colors.error, fontSize: 13, fontWeight: "600" },
   legal: { fontSize: 12, lineHeight: 17, color: brand.inkSoft, textAlign: "center", marginTop: 14 },
   trust: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 20 },
-  trustLine: { flex: 1, height: 1, backgroundColor: "#E4DAF7", maxWidth: 40 },
+  trustLine: { flex: 1, height: 1, backgroundColor: "#E4EBED", maxWidth: 40 },
   trustText: { fontSize: 12, color: brand.inkSoft, fontWeight: "600" },
 });

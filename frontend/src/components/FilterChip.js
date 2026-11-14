@@ -24,7 +24,7 @@ export default function FilterChip({ label, active, onPress, icon, count, traili
     >
       {active ? (
         <LinearGradient
-          colors={["#2A1060", colors.ink]}
+          colors={["#102360", colors.ink]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]}
@@ -32,7 +32,7 @@ export default function FilterChip({ label, active, onPress, icon, count, traili
       ) : (
         <>
           <LinearGradient
-            colors={["rgba(255, 255, 255, 0.9)", "rgba(244, 235, 255, 0.65)"]}
+            colors={["rgba(255, 255, 255, 0.9)", "rgba(248, 251, 252, 0.65)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0.8, y: 1 }}
             style={[StyleSheet.absoluteFill, { borderRadius: radius.pill }]}
@@ -40,7 +40,7 @@ export default function FilterChip({ label, active, onPress, icon, count, traili
           <LinearGradient
             colors={[
               "rgba(255, 255, 255, 0.98)",
-              "rgba(224, 195, 255, 0.4)",
+              "rgba(234, 243, 246, 0.4)",
               "rgba(255, 255, 255, 0.05)",
             ]}
             start={{ x: 0, y: 0 }}

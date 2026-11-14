@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: brand.lavenderMid,
-    boxShadow: "0 6px 18px rgba(20, 10, 46, 0.14)",
+    boxShadow: "0 6px 18px rgba(10, 18, 46, 0.14)",
   },
   head: { flexDirection: "row", alignItems: "center", gap: 10 },
   count: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center" },

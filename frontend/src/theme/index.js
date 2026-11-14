@@ -1,30 +1,30 @@
 import { Platform } from 'react-native';
 
 export const colors = {
-  ink: '#17133B', plum: '#2A1060', charcoal: '#1B1233',
-  ivory: '#FBF9FF', champagneSoft: '#EBE2FF', lavender: '#E4DBFA',
-  gold: '#8B5CF6', goldDeep: '#6D28D9', rose: '#C77DFF',
+  ink: '#131C3B', plum: '#102360', charcoal: '#121A33',
+  ivory: '#FDFEFE', champagneSoft: '#F5F9FB', lavender: '#F2F6F8',
+  gold: '#5C80F6', goldDeep: '#2851D9', rose: '#7D9BFF',
   success: '#0E9F6E', error: '#D32F2F',
-  white: '#FFFFFF', line: '#E9E0F8', muted: '#6D6885', text: '#1E1238',
-  overlay: 'rgba(20,10,46,0.55)',
-  neon: '#C77DFF', violet: '#7C3AED', deepViolet: '#0B0420',
-  primary: '#7C3AED', primaryLight: '#8B5CF6', primaryDark: '#6D28D9',
-  purpleSurface: '#F5EFFF', purpleBorder: 'rgba(139, 92, 246, 0.25)',
-  purpleGlow: '#A855F7', mint: '#10B981',
+  white: '#FFFFFF', line: '#E8EEF0', muted: '#686F85', text: '#121B38',
+  overlay: 'rgba(10, 18, 46, 0.55)',
+  neon: '#7D9BFF', violet: '#2457FF', deepViolet: '#040B20',
+  primary: '#2457FF', primaryLight: '#5C80F6', primaryDark: '#2851D9',
+  purpleSurface: '#F9FCFD', purpleBorder: 'rgba(92, 128, 246, 0.25)',
+  purpleGlow: '#557BF7', mint: '#10B981',
 };
 
 // Brand palette from the 2026 onboarding redesign. New UI should read from here (or `colors`)
 // rather than hardcoding hex values.
 export const brand = {
-  violet: '#7C2CF5',
-  deep: '#4C16B8',
-  magenta: '#D92CFF',
-  lavender: '#F1EBFF',
-  lavenderMid: '#E6DAFF',
-  bg: '#FBF9FF',
-  ink: '#17133B',
-  inkSoft: '#6D6885',
-  placeholder: '#9A94AE',
+  violet: '#2457FF',
+  deep: '#163CB8',
+  magenta: '#1FB6F0',
+  lavender: '#F4F8FA',
+  lavenderMid: '#E7EFF2',
+  bg: '#FDFEFE',
+  ink: '#131C3B',
+  inkSoft: '#686F85',
+  placeholder: '#949AAE',
   gold: '#C98A0B',
   goldBright: '#F5B82E',
   goldSoft: '#FFF5DC',
@@ -35,10 +35,10 @@ export const brand = {
 
 export const gradients = {
   // Primary CTA. White text stays above 4.5:1 across the centre of the fill.
-  cta: ['#9440FF', '#7C2CF5', '#5F1BD8'],
-  logo: ['#D92CFF', '#8F32F7', '#4C16B8'],
-  progress: ['#B26BFF', '#7C2CF5'],
-  canvas: ['#FFFFFF', '#F7F2FF', '#EFE6FF'],
+  cta: ['#3A6BFF', '#2457FF', '#1A44E0'],
+  logo: ['#1FB6F0', '#3260F7', '#163CB8'],
+  progress: ['#6B8EFF', '#2457FF'],
+  canvas: ['#FFFFFF', '#FAFCFD', '#F6FAFB'],
   iconGold: ['#FFE7A6', '#F5B82E'],
   // Secondary action (card "Enquire Now"); white text stays above 4.5:1.
   info: ['#3F8CFF', '#1F5FE0'],
@@ -48,8 +48,8 @@ export const gradients = {
 export const surfaces = {
   glassSoft: { backgroundColor: 'rgba(255, 255, 255, 0.55)', borderColor: 'rgba(255, 255, 255, 0.85)', borderWidth: 1 },
   glass: { backgroundColor: 'rgba(255, 255, 255, 0.74)', borderColor: 'rgba(255, 255, 255, 0.95)', borderWidth: 1 },
-  glassStrong: { backgroundColor: 'rgba(255, 255, 255, 0.92)', borderColor: 'rgba(124, 44, 245, 0.10)', borderWidth: 1 },
-  field: { backgroundColor: '#FAF8FF', borderColor: '#E3D9F7', borderWidth: 1.2 },
+  glassStrong: { backgroundColor: 'rgba(255, 255, 255, 0.92)', borderColor: 'rgba(36, 87, 255, 0.10)', borderWidth: 1 },
+  field: { backgroundColor: '#FDFEFE', borderColor: '#E3EAED', borderWidth: 1.2 },
 };
 
 export const motion = { fast: 160, base: 280, slow: 420 };
@@ -67,16 +67,16 @@ export const fonts = {
 export const shadow = {
   card: Platform.select({
     android: { elevation: 3 },
-    default: { shadowColor: '#140A2E', shadowOpacity: 0.09, shadowRadius: 14, shadowOffset: { width: 0, height: 6 } },
+    default: { shadowColor: '#0A122E', shadowOpacity: 0.09, shadowRadius: 14, shadowOffset: { width: 0, height: 6 } },
   }),
   float: Platform.select({
     android: { elevation: 10 },
-    default: { shadowColor: '#140A2E', shadowOpacity: 0.18, shadowRadius: 22, shadowOffset: { width: 0, height: 10 } },
+    default: { shadowColor: '#0A122E', shadowOpacity: 0.18, shadowRadius: 22, shadowOffset: { width: 0, height: 10 } },
   }),
   glass: Platform.select({
     android: { elevation: 4 },
     default: {
-      shadowColor: '#140A2E',
+      shadowColor: '#0A122E',
       shadowOpacity: 0.07,
       shadowRadius: 18,
       shadowOffset: { width: 0, height: 8 },
@@ -85,7 +85,7 @@ export const shadow = {
   glassFloat: Platform.select({
     android: { elevation: 12 },
     default: {
-      shadowColor: '#140A2E',
+      shadowColor: '#0A122E',
       shadowOpacity: 0.16,
       shadowRadius: 26,
       shadowOffset: { width: 0, height: 12 },
@@ -96,12 +96,12 @@ export const shadow = {
 // Soft neon-violet glow used on primary actions and highlights.
 export const glow = Platform.select({
   android: { elevation: 8 },
-  default: { shadowColor: '#A66BFF', shadowOpacity: 0.55, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
+  default: { shadowColor: '#6B8EFF', shadowOpacity: 0.55, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
 });
 
 export const glowSubtle = Platform.select({
   android: { elevation: 4 },
-  default: { shadowColor: '#A66BFF', shadowOpacity: 0.28, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  default: { shadowColor: '#6B8EFF', shadowOpacity: 0.28, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
 });
 
 // Comprehensive glassmorphism & liquid glass system tokens
@@ -118,7 +118,7 @@ export const glass = {
   },
   liquid: {
     backgroundColor: 'rgba(255, 255, 255, 0.72)',
-    borderColor: 'rgba(215, 185, 255, 0.6)',
+    borderColor: 'rgba(210, 224, 231, 0.6)',
     borderWidth: 1.4,
   },
   subtle: {
@@ -133,30 +133,30 @@ export const glass = {
     borderRadius: radius.pill,
   },
   dark: {
-    backgroundColor: 'rgba(20, 10, 46, 0.78)',
-    borderColor: 'rgba(199, 125, 255, 0.35)',
+    backgroundColor: 'rgba(10, 18, 46, 0.78)',
+    borderColor: 'rgba(125, 155, 255, 0.35)',
     borderWidth: 1.2,
   },
   darkCard: {
-    backgroundColor: 'rgba(32, 14, 76, 0.78)',
-    borderColor: 'rgba(199, 125, 255, 0.38)',
+    backgroundColor: 'rgba(14, 28, 76, 0.78)',
+    borderColor: 'rgba(125, 155, 255, 0.38)',
     borderWidth: 1.2,
   },
   liquidDark: {
-    backgroundColor: 'rgba(28, 12, 65, 0.82)',
-    borderColor: 'rgba(215, 160, 255, 0.5)',
+    backgroundColor: 'rgba(12, 24, 65, 0.82)',
+    borderColor: 'rgba(160, 199, 255, 0.5)',
     borderWidth: 1.4,
   },
   gradients: {
     light: ['rgba(255, 255, 255, 0.88)', 'rgba(255, 255, 255, 0.62)'],
-    liquid: ['rgba(255, 255, 255, 0.84)', 'rgba(244, 235, 255, 0.62)', 'rgba(235, 222, 255, 0.48)'],
+    liquid: ['rgba(255, 255, 255, 0.84)', 'rgba(248, 251, 252, 0.62)', 'rgba(243, 248, 250, 0.48)'],
     sheen: ['rgba(255, 255, 255, 0.85)', 'rgba(255, 255, 255, 0.1)'],
-    liquidSheen: ['rgba(255, 255, 255, 0.95)', 'rgba(224, 195, 255, 0.4)', 'rgba(255, 255, 255, 0.05)'],
-    dark: ['rgba(42, 16, 96, 0.85)', 'rgba(20, 10, 46, 0.82)'],
-    liquidDark: ['rgba(46, 18, 105, 0.88)', 'rgba(24, 11, 56, 0.82)', 'rgba(15, 6, 36, 0.88)'],
+    liquidSheen: ['rgba(255, 255, 255, 0.95)', 'rgba(234, 243, 246, 0.4)', 'rgba(255, 255, 255, 0.05)'],
+    dark: ['rgba(16, 35, 96, 0.85)', 'rgba(10, 18, 46, 0.82)'],
+    liquidDark: ['rgba(18, 38, 105, 0.88)', 'rgba(11, 22, 56, 0.82)', 'rgba(6, 13, 36, 0.88)'],
     darkSheen: ['rgba(255, 255, 255, 0.35)', 'rgba(255, 255, 255, 0.02)'],
-    violet: ['rgba(199, 125, 255, 0.28)', 'rgba(124, 58, 237, 0.15)'],
-    goldGlass: ['rgba(201, 162, 255, 0.85)', 'rgba(166, 107, 255, 0.7)'],
+    violet: ['rgba(125, 155, 255, 0.28)', 'rgba(36, 87, 255, 0.15)'],
+    goldGlass: ['rgba(162, 202, 255, 0.85)', 'rgba(107, 142, 255, 0.7)'],
   },
 };
 

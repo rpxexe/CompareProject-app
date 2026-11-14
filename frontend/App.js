@@ -12,8 +12,12 @@ import { ToastProvider } from './src/context/ToastContext';
 import { SavedProvider } from './src/context/SavedContext';
 import { CompareProvider } from './src/context/CompareContext';
 import { LocationAccessProvider } from './src/context/LocationAccessContext';
+import { NetworkProvider } from './src/context/NetworkContext';
+import OfflineBanner from './src/components/OfflineBanner';
+import OfflineScreen from './src/components/OfflineScreen';
 import AppNavigator from './src/navigation/AppNavigator';
 import SplashScreen from './src/screens/SplashScreen';
+import { markSplashDone } from './src/utils/splashGate';
 import LoginRequiredDialog from './src/components/LoginRequiredDialog';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
@@ -79,10 +83,13 @@ function Root() {
       ) : null}
       <NavBarStrip />
       {splash ? (
-        <SplashBoundary onFail={() => setSplash(false)}>
+        <SplashBoundary onFail={() => { markSplashDone(); setSplash(false); }}>
           <SplashScreen ready={appReady} onFinish={() => setSplash(false)} />
         </SplashBoundary>
       ) : null}
+      {/* Above everything, the splash included: the offline page, then the "Back online" toast. */}
+      <OfflineScreen />
+      <OfflineBanner />
     </View>
   );
 }
@@ -111,6 +118,7 @@ const styles = StyleSheet.create({
 function App() {
   return (
     <SafeAreaProvider>
+      <NetworkProvider>
       <AuthProvider>
         <ToastProvider>
           <SavedProvider>
@@ -122,6 +130,7 @@ function App() {
           </SavedProvider>
         </ToastProvider>
       </AuthProvider>
+      </NetworkProvider>
     </SafeAreaProvider>
   );
 }

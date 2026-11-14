@@ -16,7 +16,7 @@ import Text, { AppTextInput as TextInput } from "../components/AppText";
 
 const LEN = 6;
 // Soft lavender-grey tile: the theme's take on the light grey boxes.
-const BOX_BG = "#F3EFFA";
+const BOX_BG = "#F9FAFB";
 
 // One code box. It rises in on mount (staggered left to right), lifts with a pulsing ring while
 // it's the box being typed into, drops each digit in, jitters in a wave on a wrong code and hops

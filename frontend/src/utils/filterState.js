@@ -274,7 +274,12 @@ export function chipLabel(state, config, id) {
   if (f.type === 'range') return rangeLabel(f, v);
   if (f.type === 'toggle') return f.label;
   const labels = f.options.filter((o) => (Array.isArray(v) ? v.includes(o.value) : o.value === v)).map((o) => o.label);
-  if (f.unitLabel) return `${labels.join(', ')} ${f.unitLabel}`;
+  if (f.unitLabel) {
+    // "1 RK, 2, 3 BHK": the unit follows the plain numbers; labels naming their own unit stand alone.
+    const named = labels.filter((l) => /[a-z]/i.test(l));
+    const nums = labels.filter((l) => !/[a-z]/i.test(l));
+    return [...named, nums.length && `${nums.join(', ')} ${f.unitLabel}`].filter(Boolean).join(', ');
+  }
   return labels.length > 1 ? `${labels[0]} +${labels.length - 1}` : labels[0];
 }
 

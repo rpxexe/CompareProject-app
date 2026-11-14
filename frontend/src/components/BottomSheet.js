@@ -45,14 +45,14 @@ function Sheet({ y, fade, onClose, title, maxHeight, children }) {
   const insets = useSafeAreaInsets();
   return (
     <>
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(11, 4, 32, 0.62)", opacity: fade }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(4, 11, 32, 0.62)", opacity: fade }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
       </Animated.View>
       <KeyboardAvoidingView behavior="padding" style={styles.kav} pointerEvents="box-none">
         <Animated.View style={[styles.sheet, { maxHeight: `${maxHeight * 100}%`, paddingBottom: Math.max(insets.bottom, 12) + 8, transform: [{ translateY: y }] }]}>
           {/* Frosted Glass Layers */}
           <LinearGradient
-            colors={["rgba(255, 255, 255, 0.96)", "rgba(246, 242, 255, 0.92)"]}
+            colors={["rgba(255, 255, 255, 0.96)", "rgba(250, 252, 253, 0.92)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={[StyleSheet.absoluteFill, styles.gradientRadius]}
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 4.5,
     borderRadius: 2.5,
-    backgroundColor: 'rgba(199, 125, 255, 0.4)',
+    backgroundColor: 'rgba(125, 155, 255, 0.4)',
     marginBottom: 12,
     zIndex: 1,
   },
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(235, 226, 255, 0.85)',
+    backgroundColor: 'rgba(245, 249, 251, 0.85)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.9)',
     alignItems: 'center',

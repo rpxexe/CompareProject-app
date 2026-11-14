@@ -31,14 +31,14 @@ export default function OnboardingBackdrop({ imageHeight = 340, imageWidth = 0.6
         {/* Lavender wash pulls the warm photo into the brand palette. */}
         <View style={[StyleSheet.absoluteFill, styles.wash]} />
         <LinearGradient
-          colors={["#FBF9FF", "rgba(251,249,255,0.55)", "rgba(251,249,255,0)"]}
+          colors={["#FDFEFE", "rgba(253, 254, 254, 0.55)", "rgba(253, 254, 254, 0)"]}
           locations={[0, 0.4, 0.8]}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}
           style={StyleSheet.absoluteFill}
         />
         <LinearGradient
-          colors={["rgba(247,242,255,0)", "rgba(247,242,255,0.85)", "#F7F2FF"]}
+          colors={["rgba(250, 252, 253, 0)", "rgba(250, 252, 253, 0.85)", "#FAFCFD"]}
           locations={[0.45, 0.85, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -52,8 +52,8 @@ export default function OnboardingBackdrop({ imageHeight = 340, imageWidth = 0.6
       >
         <Defs>
           <SvgGradient id="obSwoosh" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0" stopColor="#E9DDFF" stopOpacity="0" />
-            <Stop offset="0.6" stopColor="#E3D3FF" stopOpacity="0.55" />
+            <Stop offset="0" stopColor="#F3F8FA" stopOpacity="0" />
+            <Stop offset="0.6" stopColor="#F0F6F8" stopOpacity="0.55" />
             <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0.7" />
           </SvgGradient>
         </Defs>
@@ -66,5 +66,5 @@ export default function OnboardingBackdrop({ imageHeight = 340, imageWidth = 0.6
 const styles = StyleSheet.create({
   photoWrap: { position: "absolute", top: 0, right: 0, overflow: "hidden" },
   photo: { width: "100%", height: "100%" },
-  wash: { backgroundColor: "rgba(190,160,255,0.26)" },
+  wash: { backgroundColor: "rgba(160, 199, 255, 0.26)" },
 });
