@@ -13,6 +13,7 @@ const { normalizeProperty, unitBasics } = require("../utils/property");
 const { SCAN_CAP, UNIT_FIELDS, collapseUnits, withProjectSummary, sortRows, scanFields } = require("../utils/projectGroups");
 const { loadProjectIndex } = require("../utils/projectIndex");
 const { textMatches } = require("../utils/atlasSearch");
+const { POSITION_FIELDS, NEAREST_SORTS, originOf, byDistance } = require("../utils/nearby");
 
 // The MongoDB filter for a query. Free-text words go through Atlas Search when it's on (ranked,
 // typo-tolerant; `scores` ranks relevance), otherwise through regexes (`scores` is null).
@@ -148,6 +149,27 @@ const getProperties = async (req, res) => {
   const grouped = wantsProjects(query);
   const reply = ({ items, total }) =>
     res.json({ items, total, correctedSearch, page, pages: Math.max(1, Math.ceil(total / limit)) });
+
+  // Near me first: with the person's position (`lat` / `lng`) and the default sort, every match is
+  // ranked by distance from them; matches equally far keep the relevance order.
+  const origin = originOf(query);
+  if (origin && NEAREST_SORTS.has(sort)) {
+    const order = buildSort("relevance");
+    let rows = sortRows(
+      await Property.find(filter).select(`${scanFields(order)} ${POSITION_FIELDS}`).limit(SCAN_CAP).lean(),
+      order,
+    );
+    if (scores) {
+      const score = (r) => scores.get(String(r._id)) || 0;
+      rows = rows.sort((a, b) => score(b) - score(a));
+    }
+    rows = byDistance(rows, origin);
+    if (grouped) return reply(await projectPage([rows], skip, limit));
+    const ids = rows.slice(skip, skip + limit).map((r) => r._id);
+    const byId = new Map((await Property.find({ _id: { $in: ids } }).lean()).map((d) => [String(d._id), d]));
+    const docs = ids.map((id) => byId.get(String(id))).filter(Boolean);
+    return reply({ items: await withRatings(docs), total: rows.length });
+  }
 
   if (sort === "rating") {
     const ranked = await PropertyRating.find({ count: { $gte: 1 } })
